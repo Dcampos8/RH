@@ -14,7 +14,8 @@ La raíz `RH` es la carpeta pública y contiene la aplicación PHP. La sincroniz
 ## Reporte y sincronización
 
 - Reporte por fechas de las checadas de `att_punches`, agrupadas por empleado y día. Muestra entrada, salida y todas las marcas intermedias.
-- El horario se obtiene de `att_day_details.shift_ID` y `att_shift.shift_start`.
+- El horario se obtiene primero de `att_day_details.shift_ID`; si no hay uno, usa la asignación por empleado, día de semana y vigencia de `rh_employee_schedule`.
+- En **Horarios**, `admin` crea turnos en `att_shift` y los asigna por persona, días de semana y vigencia. Cuando hay cuatro o más marcas, el reporte muestra las marcas 2 y 3 como salida y regreso de comida, calcula su duración y conserva las demás como checadas extra.
 - Tolerancia de 10 minutos; después calcula $3 MXN por cada minuto empezado. El cálculo es informativo y no se escribe como deducción de nómina.
 - El sincronizador crea en el reloj los usuarios activos de SQL que aún faltan en el F19; también importa usuarios numéricos nuevos del reloj a `hr_employee` y sus checadas a `att_punches`.
 - No copia huellas ni plantillas biométricas. Las huellas de las cuentas creadas en el reloj se registran directamente en el F19.
@@ -24,8 +25,9 @@ La raíz `RH` es la carpeta pública y contiene la aplicación PHP. La sincroniz
 1. Configura IIS o Apache para servir RH y usar `index.php` como documento inicial. El servidor necesita PHP 8.1+, `PDO_SQLSRV` y SQL Server ODBC Driver 18.
 2. Configura la conexión PHP a SQL Server en `config.php` (copia `config.example.php`) o con las variables `CHECADOR_DSN`, `CHECADOR_SQL_USER` y `CHECADOR_SQL_PASSWORD`.
 3. Ejecuta una vez `sql/sync_config.sql` en la base CHECADOR.
-4. Inicia sesión usando la cuenta `admin` existente en `sys_user`. La contraseña se valida contra el valor actual de `user_pwd`.
-5. En `users.php`, administra las cuentas de acceso. El usuario `admin` es el único que ve Configuración y puede sincronizar.
+4. Ejecuta una vez `sql/schedule_assignments.sql` en CHECADOR para crear la tabla de asignación de horarios.
+5. Inicia sesión usando la cuenta `admin` existente en `sys_user`. La contraseña se valida contra el valor actual de `user_pwd`.
+6. En `users.php`, administra las cuentas. En **Horarios** crea turnos y asígnalos a las personas activas. `admin` es el único que administra usuarios, horarios, configuración y sincronización.
 
 Al publicar RH como raíz web, bloquea el acceso HTTP a `.git/`, `sync/`, `sql/`, `config.php`, `config.example.php`, `.gitignore`, `.gitattributes` y `README.md`. Se incluyen `.htaccess` y `web.config`; confirma las reglas de acuerdo con tu IIS/Apache.
 
@@ -48,6 +50,6 @@ Define `PYTHON_EXECUTABLE` para el servicio PHP. Configura las variables `CHECAD
 
 El instalador solicita la cuenta de Windows que ejecutará la tarea. El Programador de tareas despierta el puente cada minuto; el intervalo efectivo (15, 30 o 60 minutos) lo consulta desde `rh_sync_config`. Puedes pausar la tarea desde Configuración sin quitar la tarea de Windows. Para desinstalarla: `Unregister-ScheduledTask -TaskName RH_F19_Synchronization -Confirm:$false`.
 
-El proceso de Windows necesita acceso a SQL Server y al puerto configurado del reloj. La cuenta SQL requiere `SELECT` en `hr_employee`, `att_terminal`, `att_punches` y `sys_user`; `INSERT` en `hr_employee`, `att_punches` y `sys_logs_auditoria`; además de `SELECT`/`UPDATE` en `rh_sync_config`. La aplicación PHP requiere `SELECT` en tablas de reporte, `sys_user`, `sys_logs_auditoria` y `rh_sync_config`; `INSERT` en `sys_logs_auditoria`; y para administrar cuentas `INSERT`/`UPDATE` en `sys_user`.
+El proceso de Windows necesita acceso a SQL Server y al puerto configurado del reloj. La cuenta SQL requiere `SELECT` en `hr_employee`, `att_terminal`, `att_punches` y `sys_user`; `INSERT` en `hr_employee`, `att_punches` y `sys_logs_auditoria`; además de `SELECT`/`UPDATE` en `rh_sync_config`. La aplicación PHP requiere `SELECT` en tablas de reporte, `sys_user`, `sys_logs_auditoria`, `rh_sync_config`, `att_shift` y `rh_employee_schedule`; `INSERT` en `sys_logs_auditoria`; para administrar cuentas `INSERT`/`UPDATE` en `sys_user`; y para horarios `INSERT` en `att_shift` más `SELECT`/`INSERT`/`DELETE` en `rh_employee_schedule`.
 
 El puente usa [`pyzk`](https://github.com/fananimi/pyzk), librería comunitaria no oficial. Verifica primero la clave de comunicación y la conectividad del F19. La ruta web `/csl/check` de la captura no se usa.
