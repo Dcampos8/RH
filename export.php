@@ -1,8 +1,7 @@
 <?php
 declare(strict_types=1);
-
-$configPath = dirname(__DIR__) . '/config.php';
-$config = require is_file($configPath) ? $configPath : dirname(__DIR__) . '/config.example.php';
+require_once __DIR__ . '/auth.php';
+require_login();
 $from = $_GET['desde'] ?? '';
 $to = $_GET['hasta'] ?? '';
 $start = DateTimeImmutable::createFromFormat('!Y-m-d', $from);
@@ -12,7 +11,7 @@ if (!$start || !$end || $end < $start || $start->diff($end)->days > 366) {
     exit('Rango de fechas no válido.');
 }
 try {
-    $pdo = new PDO($config['dsn'], $config['user'], $config['password'], [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
+    $pdo = db();
     $sql = <<<'SQL'
 SELECT p.emp_id, e.emp_firstname, e.emp_lastname, COALESCE(d.dept_name, N'') AS departamento,
        CONVERT(date, p.punch_time) AS fecha, p.punch_time, p.punch_type, p.workstate,

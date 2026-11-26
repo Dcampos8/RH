@@ -1,4 +1,5 @@
 /config.php
 /.venv/
+/sync/.venv/
 __pycache__/
 *.py[cod]

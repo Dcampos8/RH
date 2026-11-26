@@ -1,0 +1,11 @@
+Options -Indexes
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteRule ^(?:\.git|sync|sql)(?:/|$) - [F,L,NC]
+</IfModule>
+<FilesMatch "^(?:config(?:\.example)?\.php|README\.md|requirements\.txt|\.gitignore|\.gitattributes)$">
+    Require all denied
+</FilesMatch>
+<FilesMatch "\.(?:py|sql)$">
+    Require all denied
+</FilesMatch>

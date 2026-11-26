@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import os
 import sys
-from datetime import datetime
+import argparse
 
 import pyodbc
 from zk import ZK
@@ -35,7 +35,7 @@ def allocate_id(cursor, table: str) -> tuple[bool, int | None]:
     return False, int(cursor.fetchone()[0])
 
 
-def main() -> int:
+def main(actor_id: int | None) -> int:
     device_ip = os.getenv("ZK_DEVICE_IP", "192.168.10.149")
     device_port = int(os.getenv("ZK_DEVICE_PORT", "4370"))
     device_password = int(os.getenv("ZK_DEVICE_PASSWORD", "0"))
@@ -129,15 +129,29 @@ def main() -> int:
                 known_marks.add((emp_id, stamp))
                 imported_marks += 1
 
-            connection.commit()
-        print(
+            result_text = (
             f"OK: usuarios reloj→SQL {imported_users}; usuarios SQL→reloj {pushed_users}; "
             f"checadas nuevas {imported_marks}; ya existentes {skipped_marks}; "
             f"sin empleado asociado {unmatched_marks}."
-        )
+            )
+            cursor.execute(
+                "INSERT INTO dbo.rh_sync_log (status, result_text, finished_at, initiated_by) "
+                "VALUES ('OK', ?, SYSUTCDATETIME(), ?)", result_text, actor_id,
+            )
+            connection.commit()
+        print(result_text)
         return 0
     except Exception as exc:
         print(f"Error de sincronización: {exc}", file=sys.stderr)
+        try:
+            with sql_connection() as connection:
+                connection.cursor().execute(
+                    "INSERT INTO dbo.rh_sync_log (status, result_text, finished_at, initiated_by) "
+                    "VALUES ('ERROR', ?, SYSUTCDATETIME(), ?)", str(exc)[:2000], actor_id,
+                )
+                connection.commit()
+        except Exception:
+            pass
         return 1
     finally:
         if device is not None:
@@ -148,4 +162,6 @@ def main() -> int:
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--actor-id", type=int, default=None)
+    raise SystemExit(main(parser.parse_args().actor_id))
