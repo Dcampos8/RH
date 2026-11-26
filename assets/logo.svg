@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 560 160" role="img" aria-labelledby="title">
+  <title id="title">Transportes Aldez</title>
+  <g fill="#ee252b">
+    <path d="M362 72h24l-8-52c-1-8 8-12 13-5l23 31 37 5 42 16 20 30h20c10 0 18 8 18 18v14c0 8-6 14-14 14h-7a24 24 0 0 0-47 0H183a24 24 0 0 0-47 0h-9v-15l23-47c4-7 11-10 20-10h192z"/>
+    <path d="m437 62 40 7 14 20h-42z" fill="#fff"/>
+  </g>
+  <circle cx="159" cy="143" r="16" fill="#fff" stroke="#393a3e" stroke-width="8"/>
+  <circle cx="511" cy="143" r="16" fill="#fff" stroke="#ee252b" stroke-width="8"/>
+  <text x="12" y="76" fill="#393a3e" font-family="Impact, 'Arial Black', sans-serif" font-size="51" font-style="italic" font-weight="900" textLength="365" lengthAdjust="spacingAndGlyphs">TRANSPORTES</text>
+  <text x="76" y="139" fill="#ee252b" font-family="Impact, 'Arial Black', sans-serif" font-size="64" font-style="italic" font-weight="900" textLength="290" lengthAdjust="spacingAndGlyphs">ALDEZ</text>
+</svg>
