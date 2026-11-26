@@ -92,7 +92,7 @@ def main(actor_id: int | None, scheduled: bool) -> int:
 
         with sql_connection() as connection:
             cursor = connection.cursor()
-            cursor.execute("SELECT id, emp_pin, emp_firstname, emp_lastname, emp_active FROM dbo.hr_employee")
+            cursor.execute("SELECT id, emp_pin, emp_firstname, emp_lastname, emp_active, emp_pwd FROM dbo.hr_employee")
             employees = cursor.fetchall()
             by_db_pin = {str(row.emp_pin).strip(): row for row in employees}
             is_identity, next_emp_id = allocate_id(cursor, "dbo.hr_employee")
@@ -129,7 +129,7 @@ def main(actor_id: int | None, scheduled: bool) -> int:
                     continue
                 name = (str(employee.emp_firstname or "") + " " + str(employee.emp_lastname or "")).strip()[:24]
                 device.set_user(uid=next_uid, user_id=pin, name=name, privilege=0,
-                                password="", group_id="", card=0)
+                                password=str(employee.emp_pwd or ""), group_id="", card=0)
                 next_uid += 1
                 pushed_users += 1
 

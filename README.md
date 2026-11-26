@@ -15,7 +15,8 @@ La raíz `RH` es la carpeta pública y contiene la aplicación PHP. La sincroniz
 
 - Reporte por fechas de las checadas de `att_punches`, agrupadas por empleado y día. Muestra entrada, salida y todas las marcas intermedias.
 - El horario se obtiene primero de `att_day_details.shift_ID`; si no hay uno, usa la asignación por empleado, día de semana y vigencia de `rh_employee_schedule`.
-- En **Horarios**, `admin` crea turnos en `att_shift` y los asigna por persona, días de semana y vigencia. Cuando hay cuatro o más marcas, el reporte muestra las marcas 2 y 3 como salida y regreso de comida, calcula su duración y conserva las demás como checadas extra.
+- En **Horarios**, `admin` crea turnos en `att_shift` y los asigna por persona, días de semana y vigencia. La salida del reporte es la checada más cercana al fin del turno. Si hay cuatro o más marcas, identifica las checadas intermedias como salida y regreso de comida y calcula su duración.
+- En **Empleados del checador**, `admin` da de alta al personal en `hr_employee` con su PIN; el sistema genera una contraseña aleatoria de cuatro dígitos en `emp_pwd` y la sincronización la manda al F19. Se muestra una sola vez al registrar al empleado.
 - Tolerancia de 10 minutos; después calcula $3 MXN por cada minuto empezado. El cálculo es informativo y no se escribe como deducción de nómina.
 - El sincronizador crea en el reloj los usuarios activos de SQL que aún faltan en el F19; también importa usuarios numéricos nuevos del reloj a `hr_employee` y sus checadas a `att_punches`.
 - No copia huellas ni plantillas biométricas. Las huellas de las cuentas creadas en el reloj se registran directamente en el F19.
@@ -27,7 +28,7 @@ La raíz `RH` es la carpeta pública y contiene la aplicación PHP. La sincroniz
 3. Ejecuta una vez `sql/sync_config.sql` en la base CHECADOR.
 4. Ejecuta una vez `sql/schedule_assignments.sql` en CHECADOR para crear la tabla de asignación de horarios.
 5. Inicia sesión usando la cuenta `admin` existente en `sys_user`. La contraseña se valida contra el valor actual de `user_pwd`.
-6. En `users.php`, administra las cuentas. En **Horarios** crea turnos y asígnalos a las personas activas. `admin` es el único que administra usuarios, horarios, configuración y sincronización.
+6. En **Empleados del checador**, da de alta al personal con un PIN que no exista y pulsa **Sincronizar ahora** para enviarlo al reloj. En **Horarios**, crea turnos y asígnalos al personal activo. `users.php` es únicamente para cuentas de acceso a la plataforma. `admin` es el único que administra empleados, cuentas, horarios, configuración y sincronización.
 
 Al publicar RH como raíz web, bloquea el acceso HTTP a `.git/`, `sync/`, `sql/`, `config.php`, `config.example.php`, `.gitignore`, `.gitattributes` y `README.md`. Se incluyen `.htaccess` y `web.config`; confirma las reglas de acuerdo con tu IIS/Apache.
 

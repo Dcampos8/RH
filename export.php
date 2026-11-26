@@ -1,6 +1,7 @@
 <?php
 declare(strict_types=1);
 require_once __DIR__ . '/auth.php';
+require_once __DIR__ . '/attendance_helpers.php';
 require_login();
 $from = $_GET['desde'] ?? '';
 $to = $_GET['hasta'] ?? '';
@@ -15,7 +16,8 @@ try {
     $sql = <<<'SQL'
 SELECT p.emp_id, e.emp_firstname, e.emp_lastname, COALESCE(d.dept_name, N'') AS departamento,
        CONVERT(date, p.punch_time) AS fecha, p.punch_time, p.punch_type, p.workstate,
-       p.terminal_id, t.terminal_name, s.shift_name, CONVERT(time(0), s.shift_start) AS hora_inicio
+       p.terminal_id, t.terminal_name, s.shift_name, CONVERT(time(0), s.shift_start) AS hora_inicio,
+       CONVERT(time(0), s.shift_end) AS hora_fin
 FROM dbo.att_punches AS p
 JOIN dbo.hr_employee AS e ON e.id = p.emp_id
 LEFT JOIN dbo.hr_department AS d ON d.id = e.emp_dept
@@ -45,7 +47,9 @@ SQL;
     foreach ($groups as $punches) {
         $first = $punches[0];
         $firstAt = new DateTimeImmutable((string)$first['punch_time']);
-        $lastAt = new DateTimeImmutable((string)$punches[count($punches) - 1]['punch_time']);
+        $summary = summarize_attendance_punches($punches);
+        $exitAt = $summary['exit_index'] !== null
+            ? new DateTimeImmutable((string)$punches[$summary['exit_index']]['punch_time']) : null;
         $late = 0;
         if (!empty($first['hora_inicio'])) {
             $graceEnd = new DateTimeImmutable($first['fecha'] . ' ' . $first['hora_inicio']);
@@ -53,15 +57,11 @@ SQL;
             if ($firstAt > $graceEnd) $late = (int)ceil(($firstAt->getTimestamp() - $graceEnd->getTimestamp()) / 60);
         }
         $details = [];
-        $punchCount = count($punches);
-        $mealOut = $punchCount >= 4 ? new DateTimeImmutable((string)$punches[1]['punch_time']) : null;
-        $mealBack = $punchCount >= 4 ? new DateTimeImmutable((string)$punches[2]['punch_time']) : null;
-        $mealDuration = $mealOut && $mealBack ? max(0, (int)floor(($mealBack->getTimestamp() - $mealOut->getTimestamp()) / 60)) : null;
+        $mealOut = $summary['meal_out_index'] !== null ? new DateTimeImmutable((string)$punches[$summary['meal_out_index']]['punch_time']) : null;
+        $mealBack = $summary['meal_back_index'] !== null ? new DateTimeImmutable((string)$punches[$summary['meal_back_index']]['punch_time']) : null;
         foreach ($punches as $index => $p) {
             $at = new DateTimeImmutable((string)$p['punch_time']);
-            $label = $punchCount >= 4
-                ? ($index === 0 ? 'Entrada' : ($index === 1 ? 'Salida a comida' : ($index === 2 ? 'Regreso de comida' : ($index === $punchCount - 1 ? 'Salida' : 'Checada extra'))))
-                : ($index === 0 ? 'Entrada' : ($index === $punchCount - 1 ? 'Salida' : 'Checada intermedia'));
+            $label = $summary['labels'][$index];
             $details[] = $label . ' ' . $at->format('H:i:s') . ' tipo=' . ($p['punch_type'] ?: '—') . ' estado=' . ($p['workstate'] ?: '—')
                 . ' reloj=' . ($p['terminal_name'] ?: ($p['terminal_id'] ?: '—'));
         }
@@ -69,8 +69,8 @@ SQL;
             trim($first['emp_firstname'] . ' ' . $first['emp_lastname']), $first['departamento'],
             $first['shift_name'] ?: ($first['hora_inicio'] ?: 'Sin horario'), $firstAt->format('H:i:s'),
             $mealOut ? $mealOut->format('H:i:s') : '', $mealBack ? $mealBack->format('H:i:s') : '',
-            $mealDuration === null ? '' : sprintf('%02d:%02d', intdiv($mealDuration, 60), $mealDuration % 60),
-            count($punches) > 1 ? $lastAt->format('H:i:s') : '', $late, number_format($late * 3, 2, '.', ''),
+            $summary['meal_minutes'] === null ? '' : sprintf('%02d:%02d', intdiv($summary['meal_minutes'], 60), $summary['meal_minutes'] % 60),
+            $exitAt?->format('H:i:s') ?? '', $late, number_format($late * 3, 2, '.', ''),
             count($punches), implode('; ', $details)];
         foreach ($values as &$value) {
             $value = (string)$value;
