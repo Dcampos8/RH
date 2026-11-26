@@ -18,19 +18,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $stmt->execute([$username]);
             $user = $stmt->fetch(PDO::FETCH_ASSOC);
             $storedPassword = $user ? rtrim((string)$user['user_pwd']) : '';
+            $hashInfo = password_get_info($storedPassword);
             $validPassword = $user && $password !== '' && $storedPassword !== '' && (password_verify($password, $storedPassword)
-                || (!str_starts_with($storedPassword, '$2y$') && hash_equals($storedPassword, $password)));
+                || (empty($hashInfo['algo']) && hash_equals($storedPassword, $password)));
             if ($validPassword) {
                 session_regenerate_id(true);
                 $_SESSION['app_user_id'] = (int)$user['id'];
                 $_SESSION['app_username'] = (string)$user['username'];
                 $_SESSION['csrf'] = bin2hex(random_bytes(32));
-                audit_event('LOGIN_OK', 'Inicio de sesión correcto.', (int)$user['id'], (string)$user['username']);
+                try {
+                    audit_event('LOGIN_OK', 'Inicio de sesión correcto.', (int)$user['id'], (string)$user['username']);
+                } catch (Throwable $auditException) {
+                    error_log('[RH login] Sesión válida, pero falló la auditoría: ' . $auditException->getMessage());
+                }
                 header('Location: index.php', true, 303);
                 exit;
             }
             $error = 'Usuario o contraseña incorrectos.';
         } catch (Throwable $exception) {
+            error_log('[RH login] Falló la consulta de acceso a CHECADOR: ' . $exception->getMessage());
             $error = 'No se pudo validar el acceso. Verifica la conexión con CHECADOR.';
         }
     }
