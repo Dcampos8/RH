@@ -1,8 +1,10 @@
 <?php
 declare(strict_types=1);
 require_once __DIR__ . '/auth.php';
+require_once __DIR__ . '/branding.php';
 require_once __DIR__ . '/attendance_helpers.php';
 require_login();
+$branding = branding_settings();
 $today = (new DateTimeImmutable('today'))->format('Y-m-d');
 $from = $_GET['desde'] ?? $today;
 $to = $_GET['hasta'] ?? $today;
@@ -115,8 +117,8 @@ $totalPunches = array_sum(array_column($rows, 'cantidad'));
 <html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Reloj checador</title><style>
 :root{font:15px system-ui,Segoe UI,sans-serif;color:#17202a;background:#f3f5f8}body{margin:0}main{width:auto;max-width:none;box-sizing:border-box;margin:24px 0;padding:0 24px}h1{margin-bottom:4px}.muted,.hint{color:#637083}.card{background:#fff;border:1px solid #dce2e9;border-radius:12px;padding:18px;margin:18px 0}form{display:flex;gap:12px;align-items:end;flex-wrap:wrap}label{display:grid;gap:6px}input,button,a.button{font:inherit;padding:9px 12px;border:1px solid #bcc7d3;border-radius:7px;background:#fff}button,a.button{background:#173b67;color:#fff;border:0;text-decoration:none;cursor:pointer}.scroll{overflow:auto}table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:9px;border-bottom:1px solid #e5e9ee;vertical-align:top}th{background:#edf2f7;white-space:nowrap}.details{min-width:360px;font-size:13px;color:#475569}.error{color:#a32323;background:#fff0f0;padding:12px;border-radius:8px}.stats{display:flex;gap:26px;flex-wrap:wrap}.hint{font-size:13px}.sync{display:inline}.sync button{background:#277341}
-</style><link rel="stylesheet" href="assets/app.css"></head><body><main>
-<div class="brandbar"><img src="assets/logo.svg" alt="Transportes Aldez"><div class="brand-caption"><strong>Control de asistencia</strong>Recursos Humanos · CHECADOR</div></div><h1>Reporte de checador</h1><div class="muted">CHECADOR · SQL Server · ZKTeco F19 (192.168.10.149) · <?=h($_SESSION['app_username'])?></div>
+</style><link rel="stylesheet" href="assets/app.css"></head><body style="--brand:<?=h($branding['accent_color'])?>;--brand-dark:<?=h($branding['dark_color'])?>"><main>
+<div class="brandbar"><img src="logo.php" alt="<?=h($branding['brand_name'])?>"><div class="brand-caption"><strong><?=h($branding['brand_name'])?></strong>Recursos Humanos · CHECADOR</div></div><h1>Reporte de checador</h1><div class="muted">CHECADOR · SQL Server · ZKTeco F19 (192.168.10.149) · <?=h($_SESSION['app_username'])?></div>
 <nav><?php if (strtolower((string)$_SESSION['app_username']) === 'admin'): ?><a href="empleados.php">Empleados del checador</a> <a href="horarios.php">Horarios</a> <a href="users.php">Usuarios de plataforma</a> <a href="settings.php">Configuración</a><?php endif; ?> <form class="sync" method="post" action="logout.php"><input type="hidden" name="csrf" value="<?=h(csrf_token())?>"><button>Cerrar sesión</button></form></nav>
 <?php if ($error): ?><p class="error"><?=h($error)?></p><?php endif; ?>
 <?php if (!empty($syncMessage)): ?><p class="card">Última sincronización · <?=h($syncMessage['status'])?> · <?=h($syncMessage['finished_at'])?><br><?=h($syncMessage['result_text'])?></p><?php endif; ?>
