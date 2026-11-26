@@ -7,6 +7,7 @@ if (session_status() !== PHP_SESSION_ACTIVE) {
     session_start();
 }
 require_once __DIR__ . '/db.php';
+require_once __DIR__ . '/audit.php';
 
 function csrf_token(): string
 {
@@ -25,7 +26,7 @@ function require_login(): void
 function require_admin(): void
 {
     require_login();
-    if (($_SESSION['app_role'] ?? '') !== 'admin') {
+    if (strtolower((string)($_SESSION['app_username'] ?? '')) !== 'admin') {
         http_response_code(403);
         exit('No tienes permiso para esta sección.');
     }

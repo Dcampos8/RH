@@ -1,76 +1,53 @@
-# Sistema de reloj checador
+# Reloj checador RH
 
-La raíz de este proyecto (`RH`) es la carpeta pública del sitio. Los PHP quedan aquí en la raíz; el sincronizador Python está en `sync/`. La aplicación usa PHP y SQL Server. El puente comunica la BD `CHECADOR` del servidor `HPSERVER1\COMPAC` (`192.168.10.38`) con el reloj ZKTeco F19 (`192.168.10.149`). La ficha del fabricante identifica al F19 y confirma TCP/IP y servidor web: [ficha técnica F19](https://www.zkteco-ea.com/wp-content/uploads/2023/05/f19_brochure.pdf).
+La raíz `RH` es la carpeta pública y contiene la aplicación PHP. La sincronización del F19 se ejecuta con el único componente Python, en `sync/`. Los datos de empleados y checadas permanecen en la base existente `CHECADOR` (`HPSERVER1\COMPAC`, `192.168.10.38`); el reloj es ZKTeco F19 (`192.168.10.149`).
 
-## Funciones
+## Base de datos y acceso
 
-- Reporte por fechas de todas las checadas disponibles en `att_punches`, agrupadas por empleado/día.
-- Muestra primera entrada, última salida y todas las marcas intermedias, con tipo, estado y reloj de origen.
-- Usa `att_day_details.shift_ID` y `att_shift.shift_start` para obtener el horario.
-- Tolerancia de 10 minutos; después cobra $3 MXN por cada minuto empezado. Ejemplo: turno 08:00, checada 08:10 = $0 y 08:11 = $3.
-- Exportación CSV.
-- Sincronización manual de altas de usuarios y checadas en ambos sentidos.
-- Inicio de sesión y administración de cuentas con credenciales guardadas con hash en tablas de `CHECADOR`.
-- Historial de sincronizaciones guardado en `CHECADOR`.
+- El inicio de sesión utiliza `dbo.sys_user`, que ya existe en CHECADOR. Se usa `username` y `user_pwd`; no se crea una tabla de usuarios paralela.
+- La cuenta `admin` es la única que puede administrar cuentas, configuración y sincronización. Las demás cuentas de `sys_user` pueden consultar y exportar reportes.
+- Las cuentas nuevas se insertan en `sys_user`. La aplicación guarda sus contraseñas con bcrypt dentro de `user_pwd` (la columna existente es de 64 caracteres). Las contraseñas existentes en texto directo también se pueden validar; no se cambian automáticamente.
+- Las cuentas creadas aquí son para este portal; el programa de escritorio original podría usar otro formato de contraseña.
+- Las acciones se guardan en `dbo.sys_logs_auditoria`, tabla existente en el esquema recibido.
+- `sql/sync_config.sql` crea solamente `dbo.rh_sync_config`, donde se guardan la IP, puerto, clave de comunicación, intervalo y estado de sincronización automática. No toca las tablas de RH.
 
-El descuento solo se calcula para el reporte. El sistema no lo guarda como deducción de nómina.
+## Reporte y sincronización
 
-## Qué sincroniza
+- Reporte por fechas de las checadas de `att_punches`, agrupadas por empleado y día. Muestra entrada, salida y todas las marcas intermedias.
+- El horario se obtiene de `att_day_details.shift_ID` y `att_shift.shift_start`.
+- Tolerancia de 10 minutos; después calcula $3 MXN por cada minuto empezado. El cálculo es informativo y no se escribe como deducción de nómina.
+- El sincronizador crea en el reloj los usuarios activos de SQL que aún faltan en el F19; también importa usuarios numéricos nuevos del reloj a `hr_employee` y sus checadas a `att_punches`.
+- No copia huellas ni plantillas biométricas. Las huellas de las cuentas creadas en el reloj se registran directamente en el F19.
 
-- **SQL → reloj:** crea en el reloj usuarios activos de `hr_employee` que aún no estén en el F19, usando `emp_pin` como ID y nombre/apellidos como nombre visible.
-- **Reloj → SQL:** crea en `hr_employee` las cuentas numéricas que existen en el F19 y faltan en SQL. El nombre se separa en nombre y apellido; `emp_active` queda en 1.
-- **Reloj → SQL:** importa marcas del F19 a `att_punches`, evitando duplicar empleado/hora que ya esté almacenado.
+## Instalación inicial
 
-No sincroniza huellas, contraseñas ni plantillas biométricas. Las personas agregadas al reloj desde SQL deberán registrar su huella directamente en el F19. En esta primera versión, la sincronización agrega usuarios nuevos; no sobrescribe los datos de usuarios que ya existen en ambos lados.
+1. Configura IIS o Apache para servir RH y usar `index.php` como documento inicial. El servidor necesita PHP 8.1+, `PDO_SQLSRV` y SQL Server ODBC Driver 18.
+2. Configura la conexión PHP a SQL Server en `config.php` (copia `config.example.php`) o con las variables `CHECADOR_DSN`, `CHECADOR_SQL_USER` y `CHECADOR_SQL_PASSWORD`.
+3. Ejecuta una vez `sql/sync_config.sql` en la base CHECADOR.
+4. Inicia sesión usando la cuenta `admin` existente en `sys_user`. La contraseña se valida contra el valor actual de `user_pwd`.
+5. En `users.php`, administra las cuentas de acceso. El usuario `admin` es el único que ve Configuración y puede sincronizar.
 
-## Requisitos
+Al publicar RH como raíz web, bloquea el acceso HTTP a `.git/`, `sync/`, `sql/`, `config.php`, `config.example.php`, `.gitignore`, `.gitattributes` y `README.md`. Se incluyen `.htaccess` y `web.config`; confirma las reglas de acuerdo con tu IIS/Apache.
 
-- IIS o Apache con PHP 8.1+ y extensiones `PDO_SQLSRV` y `SQLSRV` instaladas.
-- SQL Server ODBC Driver 18 para el sincronizador.
-- Python 3.11+ y acceso de red desde el servidor web a SQL Server y al reloj.
-- El reloj F19 debe tener IP `192.168.10.149`, acceso TCP/IP habilitado y su clave de comunicación conocida. La clave de la web del dispositivo es distinta.
+## Configurar sincronización automática
 
-## Instalación de la web
+Entra como `admin`, abre **Configuración**, deja activa la sincronización automática y selecciona 15 minutos (es el valor inicial). También puedes ajustar IP, puerto y clave de comunicación del F19. Esa clave no es el usuario ni la contraseña del sitio web.
 
-1. Configura IIS/Apache para servir la raíz de RH y usar `index.php` como página inicial.
-2. Copia `config.example.php` como `config.php` y configura la conexión SQL, o define `CHECADOR_DSN`, `CHECADOR_SQL_USER` y `CHECADOR_SQL_PASSWORD` como variables de entorno del servicio web. La raíz también contiene `.git`; instala las reglas de `.htaccess`/`web.config` y confirma que el servidor web bloquee `.git`, `sync/`, `sql/` y los archivos de configuración.
-3. Ejecuta una vez `sql/install.sql` dentro de la base `CHECADOR`. Crea las tablas `rh_app_user` y `rh_sync_log`; no reemplaza ni borra tablas actuales.
-4. Crea la primera cuenta administradora desde PowerShell con variables de entorno y PHP CLI:
-
-   ```powershell
-   $env:APP_ADMIN_USERNAME = 'admin'
-   $env:APP_ADMIN_PASSWORD = 'pon-aqui-una-clave-larga-de-12-o-mas-caracteres'
-   php sql/create_admin.php
-   Remove-Item Env:APP_ADMIN_USERNAME
-   Remove-Item Env:APP_ADMIN_PASSWORD
-   ```
-
-   El script solo funciona por CLI y solo si todavía no existe un administrador. Después, inicia sesión y administra cuentas en `users.php`.
-5. La cuenta SQL de PHP requiere `SELECT` sobre las tablas de reporte y las dos tablas `rh_*`; también `INSERT` y `UPDATE` en `rh_app_user` para administrar accesos. La cuenta del sincronizador requiere los permisos indicados abajo y `INSERT` en `rh_sync_log`.
-
-## Instalación del sincronizador Python
-
-En una cuenta controlada del servidor web, crea un entorno virtual e instala solo las dependencias de sincronización:
+Para que Windows revise el horario, instala Python 3.11+, ODBC Driver 18 y las dependencias del puente:
 
 ```powershell
 py -m venv sync\.venv
 sync\.venv\Scripts\python.exe -m pip install -r sync\requirements.txt
 ```
 
-Configura estas variables en el servicio web para que PHP y el sincronizador las reciban:
+Define `PYTHON_EXECUTABLE` para el servicio PHP. Configura las variables `CHECADOR_SQL_SERVER`, `CHECADOR_SQL_DATABASE`, `CHECADOR_SQL_USER` y `CHECADOR_SQL_PASSWORD` para la cuenta Windows que usará la tarea (o usa autenticación integrada si esa cuenta tiene permiso en SQL). Después abre PowerShell con esa cuenta y ejecuta:
 
-- `PYTHON_EXECUTABLE`: ruta completa a `sync\.venv\Scripts\python.exe`.
-- `CHECADOR_SQL_SERVER`, `CHECADOR_SQL_DATABASE`, `CHECADOR_SQL_USER`, `CHECADOR_SQL_PASSWORD`, `CHECADOR_SQL_DRIVER`.
-- `ZK_DEVICE_IP=192.168.10.149`, `ZK_DEVICE_PORT=4370` y `ZK_DEVICE_PASSWORD` (clave del protocolo del reloj, `0` si no tiene una).
+```powershell
+.\sync\install-task.ps1
+```
 
-La cuenta SQL usada por el sincronizador necesita `SELECT` sobre empleados, terminal y checadas, además de `INSERT` en `dbo.hr_employee`, `dbo.att_punches` y `dbo.rh_sync_log`. El proceso detecta si `id` es identity; si no lo es, asigna el siguiente ID dentro de una transacción. La cuenta del servicio web también debe tener permiso para iniciar Python.
+El instalador solicita la cuenta de Windows que ejecutará la tarea. El Programador de tareas despierta el puente cada minuto; el intervalo efectivo (15, 30 o 60 minutos) lo consulta desde `rh_sync_config`. Puedes pausar la tarea desde Configuración sin quitar la tarea de Windows. Para desinstalarla: `Unregister-ScheduledTask -TaskName RH_F19_Synchronization -Confirm:$false`.
 
-El puente usa [`pyzk`](https://github.com/fananimi/pyzk), una librería comunitaria no oficial. No se usan los datos de acceso web mostrados en la captura. El error de la ruta `/csl/check` no participa en el proceso.
+El proceso de Windows necesita acceso a SQL Server y al puerto configurado del reloj. La cuenta SQL requiere `SELECT` en `hr_employee`, `att_terminal`, `att_punches` y `sys_user`; `INSERT` en `hr_employee`, `att_punches` y `sys_logs_auditoria`; además de `SELECT`/`UPDATE` en `rh_sync_config`. La aplicación PHP requiere `SELECT` en tablas de reporte, `sys_user`, `sys_logs_auditoria` y `rh_sync_config`; `INSERT` en `sys_logs_auditoria`; y para administrar cuentas `INSERT`/`UPDATE` en `sys_user`.
 
-## Tablas que se esperan
-
-Se usan las tablas ya presentes en el esquema proporcionado: `att_punches`, `att_terminal`, `att_day_details`, `att_shift`, `hr_employee` y `hr_department`. La instalación agrega `rh_app_user` para las cuentas del sitio y `rh_sync_log` para el historial de sincronización. Se espera que `hr_employee.emp_pin` coincida con el User ID del F19, y que los IDs sean numéricos porque `emp_pin` es INT en el esquema.
-
-## Consideraciones para turnos
-
-La entrada del día se toma de la primera marca cronológica. Si no hay turno asignado en `att_day_details`, muestra “Sin horario” y no calcula descuento. Turnos nocturnos y cambios de turno durante el día requieren confirmar cómo los representa la instalación actual en `att_day_details`.
+El puente usa [`pyzk`](https://github.com/fananimi/pyzk), librería comunitaria no oficial. Verifica primero la clave de comunicación y la conectividad del F19. La ruta web `/csl/check` de la captura no se usa.

@@ -4,6 +4,7 @@ from __future__ import annotations
 import os
 import sys
 import argparse
+from datetime import datetime, timezone
 
 import pyodbc
 from zk import ZK
@@ -35,14 +36,50 @@ def allocate_id(cursor, table: str) -> tuple[bool, int | None]:
     return False, int(cursor.fetchone()[0])
 
 
-def main(actor_id: int | None) -> int:
-    device_ip = os.getenv("ZK_DEVICE_IP", "192.168.10.149")
-    device_port = int(os.getenv("ZK_DEVICE_PORT", "4370"))
-    device_password = int(os.getenv("ZK_DEVICE_PASSWORD", "0"))
-    client = ZK(device_ip, port=device_port, timeout=10, password=device_password,
-                force_udp=False, ommit_ping=True)
+def audit(cursor, action: str, details: str, actor_id: int | None):
+    if actor_id is None:
+        username = "Sincronizador automático"
+    else:
+        cursor.execute("SELECT username FROM dbo.sys_user WHERE id = ?", actor_id)
+        row = cursor.fetchone()
+        username = str(row[0]) if row else "Sincronizador"
+    identity, next_id = allocate_id(cursor, "dbo.sys_logs_auditoria")
+    fields = ["fecha_registro", "usuario_accion", "accion", "detalles_nuevos", "ip_maquina"]
+    values = [datetime.now(timezone.utc).replace(tzinfo=None), username, action,
+              details[:2000], os.getenv("COMPUTERNAME", "CHECADOR-SYNC")]
+    if not identity:
+        fields.insert(0, "id")
+        values.insert(0, next_id)
+    cursor.execute(
+        f"INSERT INTO dbo.sys_logs_auditoria ({', '.join('[' + f + ']' for f in fields)}) "
+        f"VALUES ({', '.join('?' for _ in fields)})", values,
+    )
+
+
+def main(actor_id: int | None, scheduled: bool) -> int:
+    lock_connection = None
     device = None
     try:
+        lock_connection = sql_connection()
+        lock_cursor = lock_connection.cursor()
+        lock_cursor.execute("SET NOCOUNT ON; DECLARE @r int; EXEC @r = sp_getapplock @Resource=N'RH_F19_SYNC', @LockMode='Exclusive', @LockOwner='Session', @LockTimeout=0; SELECT @r")
+        if int(lock_cursor.fetchone()[0]) < 0:
+            print("SKIP: ya hay una sincronización en curso.")
+            return 0
+        lock_cursor.execute("SELECT device_ip, device_port, device_password, auto_enabled, interval_minutes, next_run_at FROM dbo.rh_sync_config WHERE id = 1")
+        settings = lock_cursor.fetchone()
+        if settings is None:
+            raise RuntimeError("No existe configuración. Ejecuta sql/sync_config.sql.")
+        device_ip, device_port, device_password, auto_enabled, interval_minutes, next_run = settings
+        if scheduled:
+            now = datetime.now(timezone.utc).replace(tzinfo=None)
+            if not auto_enabled or (next_run is not None and next_run > now):
+                print("SKIP: sincronización automática desactivada o todavía no toca.")
+                return 0
+            lock_cursor.execute("UPDATE dbo.rh_sync_config SET last_run_at=SYSUTCDATETIME(), next_run_at=DATEADD(minute, interval_minutes, SYSUTCDATETIME()) WHERE id=1")
+            lock_connection.commit()
+        client = ZK(str(device_ip), port=int(device_port), timeout=10, password=int(device_password),
+                    force_udp=False, ommit_ping=True)
         device = client.connect()
         # Solo lecturas del terminal al obtener usuarios/checadas. La única
         # escritura al terminal es crear cuentas que existen en CHECADOR.
@@ -60,7 +97,7 @@ def main(actor_id: int | None) -> int:
             imported_users = 0
             for user in terminal_users:
                 pin = str(getattr(user, "user_id", "")).strip()
-                if not pin.isdigit() or pin in by_db_pin:
+                if not pin.isdigit() or int(pin) > 2147483647 or pin in by_db_pin:
                     continue
                 # hr_employee.emp_pin es INT; registros sin PIN numérico no se
                 # insertan automáticamente para evitar asignaciones ambiguas.
@@ -134,10 +171,8 @@ def main(actor_id: int | None) -> int:
             f"checadas nuevas {imported_marks}; ya existentes {skipped_marks}; "
             f"sin empleado asociado {unmatched_marks}."
             )
-            cursor.execute(
-                "INSERT INTO dbo.rh_sync_log (status, result_text, finished_at, initiated_by) "
-                "VALUES ('OK', ?, SYSUTCDATETIME(), ?)", result_text, actor_id,
-            )
+            audit(cursor, "SYNC_OK", result_text, actor_id)
+            cursor.execute("UPDATE dbo.rh_sync_config SET last_run_at=SYSUTCDATETIME(), next_run_at=CASE WHEN auto_enabled=1 THEN DATEADD(minute, interval_minutes, SYSUTCDATETIME()) ELSE NULL END WHERE id=1")
             connection.commit()
         print(result_text)
         return 0
@@ -145,10 +180,9 @@ def main(actor_id: int | None) -> int:
         print(f"Error de sincronización: {exc}", file=sys.stderr)
         try:
             with sql_connection() as connection:
-                connection.cursor().execute(
-                    "INSERT INTO dbo.rh_sync_log (status, result_text, finished_at, initiated_by) "
-                    "VALUES ('ERROR', ?, SYSUTCDATETIME(), ?)", str(exc)[:2000], actor_id,
-                )
+                cursor = connection.cursor()
+                audit(cursor, "SYNC_ERROR", str(exc), actor_id)
+                cursor.execute("UPDATE dbo.rh_sync_config SET last_run_at=SYSUTCDATETIME(), next_run_at=CASE WHEN auto_enabled=1 THEN DATEADD(minute, interval_minutes, SYSUTCDATETIME()) ELSE NULL END WHERE id=1")
                 connection.commit()
         except Exception:
             pass
@@ -159,9 +193,16 @@ def main(actor_id: int | None) -> int:
                 device.disconnect()
             except Exception:
                 pass
+        if lock_connection is not None:
+            try:
+                lock_connection.close()
+            except Exception:
+                pass
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--actor-id", type=int, default=None)
-    raise SystemExit(main(parser.parse_args().actor_id))
+    parser.add_argument("--scheduled", action="store_true")
+    args = parser.parse_args()
+    raise SystemExit(main(args.actor_id, args.scheduled))

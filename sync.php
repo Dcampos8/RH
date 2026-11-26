@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 require_once __DIR__ . '/auth.php';
-require_login();
+require_admin();
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST'
     || !isset($_POST['csrf'], $_SESSION['csrf'])
@@ -15,11 +15,12 @@ $python = getenv('PYTHON_EXECUTABLE') ?: 'python';
 $command = escapeshellarg($python) . ' ' . escapeshellarg($script) . ' --actor-id ' . (int)$_SESSION['app_user_id'] . ' 2>&1';
 $outputLines = [];
 exec($command, $outputLines, $exitCode);
-$success = $exitCode === 0 && count(array_filter($outputLines, static fn($line) => str_starts_with(trim((string)$line), 'OK:'))) > 0;
+$success = $exitCode === 0 && count(array_filter($outputLines, static function ($line) {
+    return str_starts_with(trim((string)$line), 'OK:') || str_starts_with(trim((string)$line), 'SKIP:');
+})) > 0;
 if (!$success) {
     try {
-        $stmt = db()->prepare("INSERT INTO dbo.rh_sync_log (status, result_text, finished_at, initiated_by) VALUES ('ERROR', ?, SYSUTCDATETIME(), ?)");
-        $stmt->execute(['No se pudo ejecutar el sincronizador. Verifica PHP, Python y la conexión del dispositivo.', (int)$_SESSION['app_user_id']]);
+        audit_event('SYNC_ERROR', 'No se pudo ejecutar el sincronizador. Verifica PHP, Python y la conexión del dispositivo.', (int)$_SESSION['app_user_id']);
     } catch (Throwable $exception) { /* El puente registra el error si alcanza SQL. */ }
 }
 header('Location: index.php', true, 303);

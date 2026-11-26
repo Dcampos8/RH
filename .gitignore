@@ -1,5 +1,6 @@
 /config.php
 /.venv/
 /sync/.venv/
+/sync/.task-credential.xml
 __pycache__/
 *.py[cod]
