@@ -66,25 +66,10 @@ SQL;
         $summary = summarize_attendance_punches($punches);
         $exitAt = $summary['exit_index'] !== null
             ? new DateTimeImmutable((string)$punches[$summary['exit_index']]['punch_time']) : null;
-        $lateMinutes = 0;
-        if (!empty($first['hora_inicio'])) {
-            $scheduled = new DateTimeImmutable($first['fecha'] . ' ' . $first['hora_inicio']);
-            $graceEnd = $scheduled->modify('+10 minutes');
-            if ($firstAt > $graceEnd) {
-                $secondsLate = $firstAt->getTimestamp() - $graceEnd->getTimestamp();
-                $lateMinutes = (int)ceil($secondsLate / 60);
-            }
-        }
-        $details = [];
+        $lateMinutes = calculate_late_minutes($firstAt, (string)$first['fecha'], $first['hora_inicio'] ?? null);
         $mealOut = $summary['meal_out_index'] !== null ? new DateTimeImmutable((string)$punches[$summary['meal_out_index']]['punch_time']) : null;
         $mealBack = $summary['meal_back_index'] !== null ? new DateTimeImmutable((string)$punches[$summary['meal_back_index']]['punch_time']) : null;
-        foreach ($punches as $index => $punch) {
-            $at = new DateTimeImmutable((string)$punch['punch_time']);
-            $label = $summary['labels'][$index];
-            $details[] = $label . ' ' . $at->format('H:i:s') . ' · tipo ' . ($punch['punch_type'] ?: '—')
-                . ' · estado ' . ($punch['workstate'] ?: '—') . ' · reloj '
-                . ($punch['terminal_name'] ?: ($punch['terminal_id'] ?: '—'));
-        }
+        $status = $lateMinutes === null ? 'Sin horario' : ($lateMinutes > 0 ? 'Retardo' : 'A tiempo');
         $rows[] = [
             'fecha' => (new DateTimeImmutable((string)$first['fecha']))->format('Y-m-d'),
             'empleado' => trim($first['emp_firstname'] . ' ' . $first['emp_lastname']),
@@ -95,10 +80,10 @@ SQL;
             'regreso_comida' => $mealBack?->format('H:i:s') ?? '—',
             'salida' => $exitAt?->format('H:i:s') ?? '—',
             'comida' => $summary['meal_minutes'] === null ? '—' : sprintf('%02d:%02d', intdiv($summary['meal_minutes'], 60), $summary['meal_minutes'] % 60),
+            'estado' => $status,
             'minutos' => $lateMinutes,
-            'descuento' => $lateMinutes * 3,
+            'descuento' => ($lateMinutes ?? 0) * 3,
             'cantidad' => count($punches),
-            'detalle' => $details,
         ];
     }
 } catch (Throwable $exception) {
@@ -112,6 +97,9 @@ try {
 } catch (Throwable $exception) { /* Los logs usan la tabla de auditoría existente. */ }
 $totalPenalty = array_sum(array_column($rows, 'descuento'));
 $totalPunches = array_sum(array_column($rows, 'cantidad'));
+$lateRows = array_filter($rows, static fn($row) => (int)($row['minutos'] ?? 0) > 0);
+$lateDays = count($lateRows);
+$totalLateMinutes = array_sum(array_map(static fn($row) => (int)($row['minutos'] ?? 0), $rows));
 ?>
 <!doctype html>
 <html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
@@ -123,9 +111,9 @@ $totalPunches = array_sum(array_column($rows, 'cantidad'));
 <?php if ($error): ?><p class="error"><?=h($error)?></p><?php endif; ?>
 <?php if (!empty($syncMessage)): ?><p class="card">Última sincronización · <?=h($syncMessage['status'])?> · <?=h($syncMessage['finished_at'])?><br><?=h($syncMessage['result_text'])?></p><?php endif; ?>
 <section class="card"><form method="get"><label>Desde<input type="date" name="desde" value="<?=h($from)?>" required></label><label>Hasta<input type="date" name="hasta" value="<?=h($to)?>" required></label><button>Consultar</button><a class="button" href="export.php?desde=<?=h($from)?>&amp;hasta=<?=h($to)?>">Descargar CSV</a></form>
-<p class="hint">Tolerancia de 10 minutos; después, $3 MXN por cada minuto empezado de retraso. La salida es la checada más cercana al fin del turno. Con cuatro o más marcas, las checadas intermedias se identifican como salida y regreso de comida.</p></section>
+<p class="hint">Se permiten 10 minutos de tolerancia. Desde el minuto 11 se calculan $3 MXN por cada minuto completo de retardo. La salida es la checada más cercana al fin del turno asignado. La comida se identifica con sus dos marcas intermedias cuando hay al menos cuatro checadas en el día.</p></section>
 <?php if (strtolower((string)$_SESSION['app_username']) === 'admin'): ?><section class="card"><form class="sync" method="post" action="sync.php" onsubmit="return confirm('Sincronizar checadas y usuarios entre CHECADOR y el F19. ¿Continuar?')"><input type="hidden" name="csrf" value="<?=h(csrf_token())?>"><button>Sincronizar ahora</button></form><p class="hint">La sincronización automática se configura en Configuración. No transfiere huellas ni limpia el reloj.</p></section><?php endif; ?>
-<section class="card stats"><div><b><?=count($rows)?></b><br>registros empleado/día</div><div><b>$<?=number_format((float)$totalPenalty, 2)?></b><br>descuento calculado</div><div><b><?=$totalPunches?></b><br>checadas</div></section>
-<section class="card scroll"><table><thead><tr><th>Fecha</th><th>Empleado</th><th>Departamento</th><th>Horario</th><th>Entrada</th><th>Salida comida</th><th>Regreso comida</th><th>Duración comida</th><th>Salida</th><th>Min. tarde</th><th>Descuento</th><th>Todas las checadas</th></tr></thead><tbody>
-<?php foreach ($rows as $row): ?><tr><td><?=h($row['fecha'])?></td><td><?=h($row['empleado'])?></td><td><?=h($row['departamento'])?></td><td><?=h($row['horario'])?></td><td><?=h($row['entrada'])?></td><td><?=h($row['salida_comida'])?></td><td><?=h($row['regreso_comida'])?></td><td><?=h($row['comida'])?></td><td><?=h($row['salida'])?></td><td><?=h($row['minutos'])?></td><td>$<?=number_format((float)$row['descuento'], 2)?></td><td class="details"><?php foreach ($row['detalle'] as $line): ?><?=h($line)?><br><?php endforeach; ?></td></tr><?php endforeach; ?>
+<section class="card stats"><div><b><?=count($rows)?></b><br>registros empleado/día</div><div><b><?=$totalPunches?></b><br>checadas</div><div><b><?=$lateDays?></b><br>días con retardo</div><div><b><?=$totalLateMinutes?></b><br>minutos tarde</div><div><b>$<?=number_format((float)$totalPenalty, 2)?></b><br>descuento calculado</div></section>
+<section class="card scroll"><table><thead><tr><th>Fecha</th><th>Empleado</th><th>Departamento</th><th>Horario</th><th>Entrada</th><th>Salida comida</th><th>Regreso comida</th><th>Duración comida</th><th>Salida</th><th>Marcas</th><th>Estado</th><th>Min. tarde</th><th>Descuento</th></tr></thead><tbody>
+<?php foreach ($rows as $row): ?><tr><td><?=h($row['fecha'])?></td><td><?=h($row['empleado'])?></td><td><?=h($row['departamento'])?></td><td><?=h($row['horario'])?></td><td><?=h($row['entrada'])?></td><td><?=h($row['salida_comida'])?></td><td><?=h($row['regreso_comida'])?></td><td><?=h($row['comida'])?></td><td><?=h($row['salida'])?></td><td><?=h($row['cantidad'])?></td><td><span class="badge <?=($row['estado']==='Retardo'?'badge-late':($row['estado']==='A tiempo'?'badge-ok':'badge-muted'))?>"><?=h($row['estado'])?></span></td><td><?=h($row['minutos'] ?? '—')?></td><td>$<?=number_format((float)$row['descuento'], 2)?></td></tr><?php endforeach; ?>
 </tbody></table></section></main></body></html>

@@ -1,6 +1,18 @@
 <?php
 declare(strict_types=1);
 
+function calculate_late_minutes(DateTimeImmutable $firstPunch, string $date, ?string $scheduledStart, int $graceMinutes = 10): ?int
+{
+    $scheduledStart = trim((string)$scheduledStart);
+    if ($scheduledStart === '') return null;
+
+    $graceEnd = (new DateTimeImmutable($date . ' ' . $scheduledStart))->modify('+' . $graceMinutes . ' minutes');
+    $secondsAfterGrace = $firstPunch->getTimestamp() - $graceEnd->getTimestamp();
+
+    // The first chargeable minute begins at minute 11: ignore seconds 1–59 after the 10-minute grace.
+    return $secondsAfterGrace < 60 ? 0 : intdiv($secondsAfterGrace, 60);
+}
+
 /** Classifies the day's punches using the scheduled shift end to identify checkout. */
 function summarize_attendance_punches(array $punches): array
 {

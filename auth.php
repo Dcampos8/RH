@@ -1,6 +1,8 @@
 <?php
 declare(strict_types=1);
 
+date_default_timezone_set('America/Mexico_City');
+
 if (session_status() !== PHP_SESSION_ACTIVE) {
     $secure = !empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off';
     session_set_cookie_params(['httponly' => true, 'secure' => $secure, 'samesite' => 'Lax']);

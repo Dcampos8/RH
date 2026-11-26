@@ -47,7 +47,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
                 rewind($logoStream);
                 $saveLogo = $pdo->prepare('UPDATE dbo.rh_branding SET logo_data = ?, logo_mime = ? WHERE id = 1');
-                $saveLogo->bindValue(1, $logoStream, PDO::PARAM_LOB);
+                $saveLogo->bindParam(1, $logoStream, PDO::PARAM_LOB, 0, PDO::SQLSRV_ENCODING_BINARY);
                 $saveLogo->bindValue(2, $logoMime, PDO::PARAM_STR);
                 try {
                     $saveLogo->execute();

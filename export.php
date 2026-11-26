@@ -43,35 +43,24 @@ SQL;
     header('Content-Disposition: attachment; filename="checadas-' . $start->format('Y-m-d') . '-' . $end->format('Y-m-d') . '.csv"');
     echo "\xEF\xBB\xBF";
     $out = fopen('php://output', 'w');
-    fputcsv($out, ['Fecha', 'Empleado', 'Departamento', 'Horario', 'Entrada', 'Salida comida', 'Regreso comida', 'Duración comida', 'Salida', 'Minutos tarde', 'Descuento MXN', 'Número checadas', 'Detalle checadas']);
+    fputcsv($out, ['Fecha', 'Empleado', 'Departamento', 'Horario', 'Entrada', 'Salida comida', 'Regreso comida', 'Duración comida', 'Salida', 'Número checadas', 'Estado', 'Minutos tarde', 'Descuento MXN']);
     foreach ($groups as $punches) {
         $first = $punches[0];
         $firstAt = new DateTimeImmutable((string)$first['punch_time']);
         $summary = summarize_attendance_punches($punches);
         $exitAt = $summary['exit_index'] !== null
             ? new DateTimeImmutable((string)$punches[$summary['exit_index']]['punch_time']) : null;
-        $late = 0;
-        if (!empty($first['hora_inicio'])) {
-            $graceEnd = new DateTimeImmutable($first['fecha'] . ' ' . $first['hora_inicio']);
-            $graceEnd = $graceEnd->modify('+10 minutes');
-            if ($firstAt > $graceEnd) $late = (int)ceil(($firstAt->getTimestamp() - $graceEnd->getTimestamp()) / 60);
-        }
-        $details = [];
+        $late = calculate_late_minutes($firstAt, (string)$first['fecha'], $first['hora_inicio'] ?? null);
+        $status = $late === null ? 'Sin horario' : ($late > 0 ? 'Retardo' : 'A tiempo');
         $mealOut = $summary['meal_out_index'] !== null ? new DateTimeImmutable((string)$punches[$summary['meal_out_index']]['punch_time']) : null;
         $mealBack = $summary['meal_back_index'] !== null ? new DateTimeImmutable((string)$punches[$summary['meal_back_index']]['punch_time']) : null;
-        foreach ($punches as $index => $p) {
-            $at = new DateTimeImmutable((string)$p['punch_time']);
-            $label = $summary['labels'][$index];
-            $details[] = $label . ' ' . $at->format('H:i:s') . ' tipo=' . ($p['punch_type'] ?: '—') . ' estado=' . ($p['workstate'] ?: '—')
-                . ' reloj=' . ($p['terminal_name'] ?: ($p['terminal_id'] ?: '—'));
-        }
         $values = [(new DateTimeImmutable((string)$first['fecha']))->format('Y-m-d'),
             trim($first['emp_firstname'] . ' ' . $first['emp_lastname']), $first['departamento'],
             $first['shift_name'] ?: ($first['hora_inicio'] ?: 'Sin horario'), $firstAt->format('H:i:s'),
             $mealOut ? $mealOut->format('H:i:s') : '', $mealBack ? $mealBack->format('H:i:s') : '',
             $summary['meal_minutes'] === null ? '' : sprintf('%02d:%02d', intdiv($summary['meal_minutes'], 60), $summary['meal_minutes'] % 60),
-            $exitAt?->format('H:i:s') ?? '', $late, number_format($late * 3, 2, '.', ''),
-            count($punches), implode('; ', $details)];
+            $exitAt?->format('H:i:s') ?? '', count($punches), $status, $late ?? '',
+            number_format(($late ?? 0) * 3, 2, '.', '')];
         foreach ($values as &$value) {
             $value = (string)$value;
             if (preg_match('/^[=+@\-]/', $value)) $value = "'" . $value;
