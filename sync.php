@@ -11,16 +11,19 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST'
 }
 
 $script = __DIR__ . DIRECTORY_SEPARATOR . 'sync' . DIRECTORY_SEPARATOR . 'sync_device.py';
-$python = getenv('PYTHON_EXECUTABLE') ?: 'python';
+$venvPython = __DIR__ . DIRECTORY_SEPARATOR . 'sync' . DIRECTORY_SEPARATOR . '.venv' . DIRECTORY_SEPARATOR . 'Scripts' . DIRECTORY_SEPARATOR . 'python.exe';
+$python = getenv('PYTHON_EXECUTABLE') ?: (is_file($venvPython) ? $venvPython : 'python');
 $command = escapeshellarg($python) . ' ' . escapeshellarg($script) . ' --actor-id ' . (int)$_SESSION['app_user_id'] . ' 2>&1';
 $outputLines = [];
 exec($command, $outputLines, $exitCode);
+$outputText = trim(implode("\n", $outputLines));
 $success = $exitCode === 0 && count(array_filter($outputLines, static function ($line) {
     return str_starts_with(trim((string)$line), 'OK:') || str_starts_with(trim((string)$line), 'SKIP:');
 })) > 0;
 if (!$success) {
     try {
-        audit_event('SYNC_ERROR', 'No se pudo ejecutar el sincronizador. Verifica PHP, Python y la conexión del dispositivo.', (int)$_SESSION['app_user_id']);
+        $detail = $outputText !== '' ? substr($outputText, 0, 1800) : 'El proceso no devolvió detalles.';
+        audit_event('SYNC_ERROR', 'Falló la sincronización. Detalle: ' . $detail, (int)$_SESSION['app_user_id']);
     } catch (Throwable $exception) { /* El puente registra el error si alcanza SQL. */ }
 }
 header('Location: index.php', true, 303);
