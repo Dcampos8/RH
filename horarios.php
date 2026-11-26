@@ -27,9 +27,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!hash_equals(csrf_token(), (string)($_POST['csrf'] ?? ''))) {
         $error = 'La solicitud venció. Recarga la página.';
     } else {
+        $operation = 'guardar el horario';
         try {
             $action = (string)($_POST['action'] ?? '');
             if ($action === 'turno') {
+                $operation = 'crear el turno';
                 $name = trim((string)($_POST['shift_name'] ?? ''));
                 $start = (string)($_POST['shift_start'] ?? '');
                 $end = (string)($_POST['shift_end'] ?? '');
@@ -41,6 +43,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 audit_event('SHIFT_CREATED', 'Se creó el turno ' . $name . ' (' . $start . '-' . $end . ').', (int)$_SESSION['app_user_id']);
                 $notice = 'Turno guardado en att_shift.';
             } elseif ($action === 'asignar') {
+                $operation = 'asignar el horario';
                 $employeeId = (int)($_POST['employee_id'] ?? 0);
                 $shiftByGroup = [
                     'Lunes a viernes' => ['shift' => (int)($_POST['shift_weekdays'] ?? 0), 'days' => [1, 2, 3, 4, 5]],
@@ -72,6 +75,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 audit_event('SCHEDULE_ASSIGNED', 'Se asignó horario al empleado ID ' . $employeeId . ' para ' . implode(', ', array_keys($selectedGroups)) . '.', (int)$_SESSION['app_user_id']);
                 $notice = 'Horario asignado.';
             } elseif ($action === 'borrar') {
+                $operation = 'eliminar la asignación';
                 $ids = array_values(array_unique(array_filter(array_map('intval', (array)($_POST['assignment_ids'] ?? [])), static fn($id) => $id > 0)));
                 if (!$ids) throw new InvalidArgumentException('No se seleccionaron asignaciones para eliminar.');
                 $delete = $pdo->prepare('DELETE FROM dbo.rh_employee_schedule WHERE id IN (' . implode(',', array_fill(0, count($ids), '?')) . ')');
@@ -81,7 +85,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
         } catch (Throwable $exception) {
             if ($pdo->inTransaction()) $pdo->rollBack();
-            $error = $exception instanceof InvalidArgumentException ? $exception->getMessage() : 'No se pudo guardar. Verifica que exista la tabla de asignaciones y los permisos SQL.';
+            $error = $exception instanceof InvalidArgumentException
+                ? $exception->getMessage()
+                : 'SQL no pudo ' . $operation . '. Detalle: ' . $exception->getMessage();
         }
     }
 }

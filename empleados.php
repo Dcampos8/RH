@@ -46,7 +46,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 exit;
             } catch (Throwable $exception) {
                 if ($pdo->inTransaction()) $pdo->rollBack();
-                $error = $exception instanceof InvalidArgumentException ? $exception->getMessage() : 'No se pudo crear el empleado. Revisa los permisos de INSERT en hr_employee.';
+                $error = $exception instanceof InvalidArgumentException
+                    ? $exception->getMessage()
+                    : 'No se pudo crear el empleado. Detalle SQL: ' . $exception->getMessage();
             }
         }
     }

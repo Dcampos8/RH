@@ -16,8 +16,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 throw new InvalidArgumentException('Usuario de 3 a 100 caracteres y contraseña de al menos 12 caracteres.');
             }
             $hash = password_hash($password, PASSWORD_BCRYPT);
-            if (strlen($hash) > 64) throw new RuntimeException('El hash excede la capacidad de sys_user.user_pwd.');
             if ($action === 'create') {
+                $columns = db()->query("SELECT c.name, c.max_length, t.name AS data_type FROM sys.columns c JOIN sys.types t ON t.user_type_id=c.user_type_id WHERE c.object_id=OBJECT_ID(N'dbo.sys_user') AND c.name IN (N'username', N'user_pwd')")->fetchAll(PDO::FETCH_ASSOC);
+                $limits = [];
+                foreach ($columns as $column) {
+                    $maxLength = (int)$column['max_length'];
+                    $limits[$column['name']] = $maxLength === -1 ? PHP_INT_MAX
+                        : (in_array(strtolower((string)$column['data_type']), ['nvarchar', 'nchar'], true) ? intdiv($maxLength, 2) : $maxLength);
+                }
+                if (!isset($limits['username'], $limits['user_pwd'])) {
+                    throw new RuntimeException('No se pudieron leer los tamaños reales de sys_user.username y sys_user.user_pwd.');
+                }
+                $usernameLength = function_exists('mb_strlen') ? mb_strlen($username, 'UTF-8') : strlen($username);
+                if ($usernameLength > $limits['username']) {
+                    throw new InvalidArgumentException('El nombre de usuario excede el límite real de ' . $limits['username'] . ' caracteres en sys_user.username.');
+                }
+                if (strlen($hash) > $limits['user_pwd']) {
+                    throw new RuntimeException('La columna sys_user.user_pwd permite ' . $limits['user_pwd'] . ' caracteres, pero bcrypt requiere ' . strlen($hash) . '.');
+                }
                 $check = db()->prepare('SELECT COUNT(*) FROM dbo.sys_user WHERE username = ?');
                 $check->execute([$username]);
                 if ((int)$check->fetchColumn() > 0) throw new InvalidArgumentException('Ese usuario ya existe.');
@@ -38,7 +54,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
         } catch (Throwable $exception) {
             $error = $exception instanceof InvalidArgumentException || $exception instanceof RuntimeException
-                ? $exception->getMessage() : 'No se pudo guardar la cuenta en sys_user.';
+                ? $exception->getMessage() : 'SQL rechazó el alta de la cuenta. Detalle: ' . $exception->getMessage();
         }
     }
 }
