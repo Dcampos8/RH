@@ -69,6 +69,8 @@ SQL;
         $lateMinutes = calculate_late_minutes($firstAt, (string)$first['fecha'], $first['hora_inicio'] ?? null);
         $mealOut = $summary['meal_out_index'] !== null ? new DateTimeImmutable((string)$punches[$summary['meal_out_index']]['punch_time']) : null;
         $mealBack = $summary['meal_back_index'] !== null ? new DateTimeImmutable((string)$punches[$summary['meal_back_index']]['punch_time']) : null;
+        $overtimeEntry = $summary['overtime_entry_index'] !== null ? new DateTimeImmutable((string)$punches[$summary['overtime_entry_index']]['punch_time']) : null;
+        $overtimeExit = $summary['overtime_exit_index'] !== null ? new DateTimeImmutable((string)$punches[$summary['overtime_exit_index']]['punch_time']) : null;
         $status = $lateMinutes === null ? 'Sin horario' : ($lateMinutes > 0 ? 'Retardo' : 'A tiempo');
         $rows[] = [
             'fecha' => (new DateTimeImmutable((string)$first['fecha']))->format('Y-m-d'),
@@ -79,7 +81,10 @@ SQL;
             'salida_comida' => $mealOut?->format('H:i:s') ?? '—',
             'regreso_comida' => $mealBack?->format('H:i:s') ?? '—',
             'salida' => $exitAt?->format('H:i:s') ?? '—',
-            'comida' => $summary['meal_minutes'] === null ? '—' : sprintf('%02d:%02d', intdiv($summary['meal_minutes'], 60), $summary['meal_minutes'] % 60),
+            'entrada_extra' => $overtimeEntry?->format('H:i:s') ?? '—',
+            'salida_extra' => $overtimeExit?->format('H:i:s') ?? '—',
+            'tiempo_extra' => format_attendance_duration($summary['overtime_minutes']),
+            'comida' => format_attendance_duration($summary['meal_minutes']),
             'estado' => $status,
             'minutos' => $lateMinutes,
             'descuento' => ($lateMinutes ?? 0) * 3,
@@ -98,6 +103,7 @@ SQL;
 $syncMessage = null;
 try {
     $syncMessage = db()->query("SELECT TOP (1) detalles_nuevos AS result_text, accion AS status, fecha_registro AS finished_at FROM dbo.sys_logs_auditoria WHERE accion IN ('SYNC_OK', 'SYNC_ERROR') ORDER BY id DESC")->fetch(PDO::FETCH_ASSOC) ?: null;
+    if ($syncMessage && $syncMessage['finished_at'] !== null) $syncMessage['finished_at'] = format_utc_local($syncMessage['finished_at']);
 } catch (Throwable $exception) { /* Los logs usan la tabla de auditoría existente. */ }
 $totalPenalty = array_sum(array_column($rows, 'descuento'));
 $totalPunches = array_sum(array_column($rows, 'cantidad'));
@@ -118,6 +124,6 @@ $totalLateMinutes = array_sum(array_map(static fn($row) => (int)($row['minutos']
 <p class="hint">Se permiten 10 minutos de tolerancia. Desde el minuto 11 se calculan $3 MXN por cada minuto completo de retardo. La salida es la checada más cercana al fin del turno asignado. La comida se identifica con sus dos marcas intermedias cuando hay al menos cuatro checadas en el día.</p></section>
 <?php if (has_permission('sync_run')): ?><section class="card"><form class="sync" method="post" action="sync.php" onsubmit="return confirm('Sincronizar checadas y usuarios entre CHECADOR y el F19. ¿Continuar?')"><input type="hidden" name="csrf" value="<?=h(csrf_token())?>"><button>Sincronizar ahora</button></form><p class="hint">La sincronización automática se configura en Configuración. No transfiere huellas ni limpia el reloj.</p></section><?php endif; ?>
 <section class="card stats"><div><b><?=count($rows)?></b><br>registros empleado/día</div><div><b><?=$totalPunches?></b><br>checadas</div><div><b><?=$lateDays?></b><br>días con retardo</div><div><b><?=$totalLateMinutes?></b><br>minutos tarde</div><div><b>$<?=number_format((float)$totalPenalty, 2)?></b><br>descuento calculado</div></section>
-<section class="card scroll"><table><thead><tr><th>Fecha</th><th>Empleado</th><th>Departamento</th><th>Horario</th><th>Entrada</th><th>Salida comida</th><th>Regreso comida</th><th>Duración comida</th><th>Salida</th><th>Checadas del día</th><th>Estado</th><th>Min. tarde</th><th>Descuento</th></tr></thead><tbody>
-<?php foreach ($rows as $row): ?><tr><td><?=h($row['fecha'])?></td><td><?=h($row['empleado'])?></td><td><?=h($row['departamento'])?></td><td><?=h($row['horario'])?></td><td><?=h($row['entrada'])?></td><td><?=h($row['salida_comida'])?></td><td><?=h($row['regreso_comida'])?></td><td><?=h($row['comida'])?></td><td><?=h($row['salida'])?></td><td><details><summary><?=h($row['cantidad'])?> marcas</summary><ol><?php foreach ($row['detalle_marcas'] as $markDetail): ?><li><?=h($markDetail)?></li><?php endforeach; ?></ol></details></td><td><span class="badge <?=($row['estado']==='Retardo'?'badge-late':($row['estado']==='A tiempo'?'badge-ok':'badge-muted'))?>"><?=h($row['estado'])?></span></td><td><?=h($row['minutos'] ?? '—')?></td><td>$<?=number_format((float)$row['descuento'], 2)?></td></tr><?php endforeach; ?>
+<section class="card scroll"><table><thead><tr><th>Fecha</th><th>Empleado</th><th>Departamento</th><th>Horario</th><th>Entrada</th><th>Salida comida</th><th>Regreso comida</th><th>Duración comida</th><th>Salida</th><th>Entrada extra</th><th>Salida extra</th><th>Tiempo extra</th><th>Checadas del día</th><th>Estado</th><th>Min. tarde</th><th>Descuento</th></tr></thead><tbody>
+<?php foreach ($rows as $row): ?><tr><td><?=h($row['fecha'])?></td><td><?=h($row['empleado'])?></td><td><?=h($row['departamento'])?></td><td><?=h($row['horario'])?></td><td><?=h($row['entrada'])?></td><td><?=h($row['salida_comida'])?></td><td><?=h($row['regreso_comida'])?></td><td><?=h($row['comida'])?></td><td><?=h($row['salida'])?></td><td><?=h($row['entrada_extra'])?></td><td><?=h($row['salida_extra'])?></td><td><?=h($row['tiempo_extra'])?></td><td><details><summary><?=h($row['cantidad'])?> marcas</summary><ol><?php foreach ($row['detalle_marcas'] as $markDetail): ?><li><?=h($markDetail)?></li><?php endforeach; ?></ol></details></td><td><span class="badge <?=($row['estado']==='Retardo'?'badge-late':($row['estado']==='A tiempo'?'badge-ok':'badge-muted'))?>"><?=h($row['estado'])?></span></td><td><?=h($row['minutos'] ?? '—')?></td><td>$<?=number_format((float)$row['descuento'], 2)?></td></tr><?php endforeach; ?>
 </tbody></table></section></main></body></html>

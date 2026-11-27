@@ -5,7 +5,6 @@ import os
 import sys
 import argparse
 from datetime import datetime, timezone, time, timedelta
-from zoneinfo import ZoneInfo
 
 import pyodbc
 from zk import ZK
@@ -86,9 +85,9 @@ def main(actor_id: int | None, scheduled: bool) -> int:
         # escritura al terminal es crear cuentas que existen en CHECADOR.
         terminal_users = device.get_users() or []
         attendance = device.get_attendance() or []
-        # Use the business/device timezone explicitly; the Windows service account may
-        # have a different timezone configured from the PHP portal and the F19.
-        sync_day = datetime.now(ZoneInfo("America/Mexico_City")).date()
+        # Mexico City uses UTC-6 for current dates. Use a fixed offset because
+        # Windows Python installations may not include the IANA zone database.
+        sync_day = datetime.now(timezone(timedelta(hours=-6))).date()
         day_start = datetime.combine(sync_day, time.min)
         day_end = day_start + timedelta(days=1)
         by_pin = {str(getattr(u, "user_id", "")).strip(): u for u in terminal_users}

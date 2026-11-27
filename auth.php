@@ -114,3 +114,15 @@ function h(mixed $value): string
 {
     return htmlspecialchars((string)$value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
 }
+
+function format_utc_local(mixed $value): string
+{
+    if ($value === null || trim((string)$value) === '') return '—';
+    try {
+        return (new DateTimeImmutable((string)$value, new DateTimeZone('UTC')))
+            ->setTimezone(new DateTimeZone('America/Mexico_City'))
+            ->format('Y-m-d H:i:s');
+    } catch (Throwable $exception) {
+        return (string)$value;
+    }
+}
