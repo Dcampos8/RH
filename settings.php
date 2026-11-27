@@ -76,12 +76,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $error = 'Revisa la IP, el puerto, el intervalo o la clave de comunicación.';
         } else {
             try {
-                $stmt = $pdo->prepare("UPDATE dbo.rh_sync_config SET device_ip = ?, device_port = ?, device_password = CASE WHEN ? = N'' THEN device_password ELSE ? END, auto_enabled = ?, interval_minutes = ?, next_run_at = CASE WHEN ? = 1 THEN DATEADD(minute, ?, SYSUTCDATETIME()) ELSE NULL END, updated_at = SYSUTCDATETIME() WHERE id = 1");
-                $stmt->execute([$ip, $port, $password, $password, $enabled, $interval, $enabled, $interval]);
-                audit_event('CONFIG_CHANGED', 'Se actualizaron los ajustes del reloj y la sincronización automática.', (int)$_SESSION['app_user_id']);
+                $pdo->beginTransaction();
+                $exists = $pdo->query('SELECT COUNT(*) FROM dbo.rh_sync_config WHERE id = 1')->fetchColumn();
+                if ((int)$exists !== 1) throw new RuntimeException('No existe la fila id=1 en dbo.rh_sync_config; vuelve a ejecutar sql/sync_config.sql en CHECADOR.');
+                if ($password === '') {
+                    $stmt = $pdo->prepare('UPDATE dbo.rh_sync_config SET device_ip = ?, device_port = ?, auto_enabled = ?, interval_minutes = ?, next_run_at = CASE WHEN ? = 1 THEN DATEADD(minute, ?, SYSUTCDATETIME()) ELSE NULL END, updated_at = SYSUTCDATETIME() WHERE id = 1');
+                    $stmt->execute([$ip, $port, $enabled, $interval, $enabled, $interval]);
+                } else {
+                    $stmt = $pdo->prepare('UPDATE dbo.rh_sync_config SET device_ip = ?, device_port = ?, device_password = ?, auto_enabled = ?, interval_minutes = ?, next_run_at = CASE WHEN ? = 1 THEN DATEADD(minute, ?, SYSUTCDATETIME()) ELSE NULL END, updated_at = SYSUTCDATETIME() WHERE id = 1');
+                    $stmt->execute([$ip, $port, $password, $enabled, $interval, $enabled, $interval]);
+                }
+                $pdo->commit();
+                try {
+                    audit_event('CONFIG_CHANGED', 'Se actualizaron los ajustes del reloj y la sincronización automática.', (int)$_SESSION['app_user_id']);
+                } catch (Throwable $auditException) {
+                    error_log('[RH settings audit] ' . $auditException->getMessage());
+                }
                 $notice = 'Configuración guardada en CHECADOR.';
             } catch (Throwable $exception) {
-                $error = 'No se pudo guardar. Ejecuta sql/sync_config.sql y verifica permisos UPDATE/SELECT.';
+                if ($pdo->inTransaction()) $pdo->rollBack();
+                error_log('[RH settings sync] ' . $exception->getMessage());
+                $error = 'No se pudo guardar la clave/configuración. SQL dice: ' . $exception->getMessage();
             }
         }
     }
