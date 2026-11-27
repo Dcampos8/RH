@@ -16,7 +16,7 @@ La raíz `RH` es la carpeta pública y contiene la aplicación PHP. La sincroniz
 
 - Reporte por fechas de las checadas de `att_punches`, agrupadas por empleado y día. Muestra entrada, salida y todas las marcas intermedias.
 - El horario se obtiene primero de `att_day_details.shift_ID`; si no hay uno, usa la asignación por empleado, día de semana y vigencia de `rh_employee_schedule`.
-- En **Horarios**, `admin` crea turnos en `att_shift` y los asigna por persona, días de semana y vigencia. La salida del reporte es la checada más cercana al fin del turno. Si hay cuatro o más marcas, identifica las checadas intermedias como salida y regreso de comida y calcula su duración.
+- En **Horarios**, `admin` crea turnos en `att_shift` y los asigna por persona, días de semana y vigencia. Con dos o tres marcas, la salida es la última cronológicamente; con cuatro o más, toma la más cercana al fin del turno y clasifica las otras marcas intermedias como comida cuando se puede.
 - En **Empleados del checador**, `admin` da de alta al personal en `hr_employee` con su PIN; el sistema genera una contraseña aleatoria de cuatro dígitos en `emp_pwd` y la sincronización la manda al F19. Se muestra una sola vez al registrar al empleado.
 - Tolerancia de 10 minutos; al llegar al minuto 11 se calcula $3 MXN por cada minuto completo de retardo. El cálculo es informativo y no se escribe como deducción de nómina.
 - El sincronizador crea en el reloj los usuarios activos de SQL que aún faltan en el F19; también importa usuarios numéricos nuevos del reloj a `hr_employee` y sus checadas a `att_punches`.

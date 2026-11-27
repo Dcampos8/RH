@@ -19,10 +19,12 @@ function summarize_attendance_punches(array $punches): array
     $count = count($punches);
     $exitIndex = null;
     if ($count > 1) {
+        // With fewer than four marks there is not enough information to separate both meal marks
+        // from checkout. Keep the last chronological mark as the day's exit in that case.
         $exitIndex = $count - 1;
         $date = (new DateTimeImmutable((string)$punches[0]['punch_time']))->format('Y-m-d');
         $endText = trim((string)($punches[0]['hora_fin'] ?? ''));
-        if ($endText !== '') {
+        if ($count >= 4 && $endText !== '') {
             $expectedEnd = new DateTimeImmutable($date . ' ' . $endText);
             $startText = trim((string)($punches[0]['hora_inicio'] ?? ''));
             if ($startText !== '' && $endText <= $startText) {
