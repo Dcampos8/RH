@@ -2,7 +2,7 @@
 declare(strict_types=1);
 require_once __DIR__ . '/auth.php';
 require_once __DIR__ . '/attendance_helpers.php';
-require_login();
+require_permission('report_view');
 $from = $_GET['desde'] ?? '';
 $to = $_GET['hasta'] ?? '';
 $start = DateTimeImmutable::createFromFormat('!Y-m-d', $from);

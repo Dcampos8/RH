@@ -5,7 +5,7 @@ require_once __DIR__ . '/branding.php';
 $branding = branding_settings();
 
 if (!empty($_SESSION['app_user_id'])) {
-    header('Location: index.php', true, 303);
+    header('Location: ' . default_user_route(), true, 303);
     exit;
 }
 $error = '';
@@ -33,7 +33,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 } catch (Throwable $auditException) {
                     error_log('[RH login] Sesión válida, pero falló la auditoría: ' . $auditException->getMessage());
                 }
-                header('Location: index.php', true, 303);
+                header('Location: ' . default_user_route(), true, 303);
                 exit;
             }
             $error = 'Usuario o contraseña incorrectos.';

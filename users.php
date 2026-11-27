@@ -2,7 +2,7 @@
 declare(strict_types=1);
 require_once __DIR__ . '/auth.php';
 require_once __DIR__ . '/branding.php';
-require_admin();
+require_permission('platform_users_manage');
 $branding = branding_settings();
 $notice = '';
 $error = '';

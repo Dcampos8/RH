@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 require_once __DIR__ . '/auth.php';
-require_admin();
+require_permission('sync_run');
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST'
     || !isset($_POST['csrf'], $_SESSION['csrf'])
@@ -26,4 +26,4 @@ if (!$success) {
         audit_event('SYNC_ERROR', 'Falló la sincronización. Detalle: ' . $detail, (int)$_SESSION['app_user_id']);
     } catch (Throwable $exception) { /* El puente registra el error si alcanza SQL. */ }
 }
-header('Location: index.php', true, 303);
+header('Location: ' . default_user_route(), true, 303);
