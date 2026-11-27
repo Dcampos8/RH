@@ -29,10 +29,11 @@ La raíz `RH` es la carpeta pública y contiene la aplicación PHP. La sincroniz
 3. Ejecuta una vez `sql/sync_config.sql` en la base CHECADOR.
 4. Ejecuta una vez `sql/schedule_assignments.sql` en CHECADOR para crear la tabla de asignación de horarios.
 5. Ejecuta una vez `sql/expand_sys_user_password.sql` para ampliar `sys_user.user_pwd` a 255 caracteres y guardar hashes seguros.
-6. Ejecuta `sql/branding.sql` para activar el editor de logo, nombre y colores, guardados en CHECADOR.
-7. Ejecuta una vez `sql/user_permissions.sql` para crear la tabla de permisos por cuenta.
-8. Inicia sesión usando la cuenta `admin` existente en `sys_user`. La contraseña se valida contra el valor actual de `user_pwd`.
-9. Abre **Permisos** y activa para cada usuario solo las secciones y acciones que necesite. La cuenta `admin` siempre conserva todos los permisos. En **Empleados del checador**, da de alta al personal con un PIN que no exista y pulsa **Sincronizar ahora** para enviarlo al reloj. En **Horarios**, crea turnos y asígnalos al personal activo. `users.php` es únicamente para cuentas de acceso a la plataforma.
+6. Ejecuta `sql/branding.sql` para activar el editor de logo, nombre, colores y favicon, guardados en CHECADOR.
+7. Ejecuta una vez `sql/favicon.sql` para agregar los campos del favicon a una tabla `rh_branding` ya existente. Si aún no habías creado esa tabla, `sql/branding.sql` ya incluye esos campos y este paso adicional no es necesario.
+8. Ejecuta una vez `sql/user_permissions.sql` para crear la tabla de permisos por cuenta.
+9. Inicia sesión usando la cuenta `admin` existente en `sys_user`. La contraseña se valida contra el valor actual de `user_pwd`.
+10. Abre **Permisos** y activa para cada usuario solo las secciones y acciones que necesite. La cuenta `admin` siempre conserva todos los permisos. En **Empleados del checador**, da de alta al personal con un PIN que no exista y pulsa **Sincronizar ahora** para enviarlo al reloj. En **Horarios**, crea turnos y asígnalos al personal activo. `users.php` es únicamente para cuentas de acceso a la plataforma.
 
 Al publicar RH como raíz web, bloquea el acceso HTTP a `.git/`, `sync/`, `sql/`, `config.php`, `config.example.php`, `.gitignore`, `.gitattributes` y `README.md`. Se incluyen `.htaccess` y `web.config`; confirma las reglas de acuerdo con tu IIS/Apache.
 
