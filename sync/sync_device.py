@@ -5,6 +5,7 @@ import os
 import sys
 import argparse
 from datetime import datetime, timezone, time, timedelta
+from zoneinfo import ZoneInfo
 
 import pyodbc
 from zk import ZK
@@ -85,7 +86,9 @@ def main(actor_id: int | None, scheduled: bool) -> int:
         # escritura al terminal es crear cuentas que existen en CHECADOR.
         terminal_users = device.get_users() or []
         attendance = device.get_attendance() or []
-        sync_day = datetime.now().date()
+        # Use the business/device timezone explicitly; the Windows service account may
+        # have a different timezone configured from the PHP portal and the F19.
+        sync_day = datetime.now(ZoneInfo("America/Mexico_City")).date()
         day_start = datetime.combine(sync_day, time.min)
         day_end = day_start + timedelta(days=1)
         by_pin = {str(getattr(u, "user_id", "")).strip(): u for u in terminal_users}
@@ -142,13 +145,15 @@ def main(actor_id: int | None, scheduled: bool) -> int:
             terminal_id = terminal_row[0] if terminal_row else None
             is_punch_identity, next_punch_id = allocate_id(cursor, "dbo.att_punches")
             cursor.execute("SELECT emp_id, punch_time FROM dbo.att_punches WHERE punch_time >= ? AND punch_time < ?", day_start, day_end)
-            known_marks = {(emp_id, stamp) for emp_id, stamp in cursor.fetchall()}
+            known_marks = {(emp_id, stamp.replace(microsecond=0)) for emp_id, stamp in cursor.fetchall()}
             imported_marks = skipped_marks = skipped_old_marks = unmatched_marks = 0
+            today_marks = 0
 
             for mark in attendance:
                 if mark.timestamp.date() != sync_day:
                     skipped_old_marks += 1
                     continue
+                today_marks += 1
                 emp_id = emp_id_by_pin.get(str(mark.user_id).strip())
                 if emp_id is None:
                     unmatched_marks += 1
@@ -174,8 +179,9 @@ def main(actor_id: int | None, scheduled: bool) -> int:
 
             result_text = (
             f"OK: usuarios reloj→SQL {imported_users}; usuarios SQL→reloj {pushed_users}; "
-            f"checadas de hoy nuevas {imported_marks}; ya existentes {skipped_marks}; "
-            f"anteriores a hoy descartadas {skipped_old_marks}; "
+            f"fecha local {sync_day.isoformat()}; checadas hoy en reloj {today_marks}; "
+            f"checadas nuevas en SQL {imported_marks}; ya existentes {skipped_marks}; "
+            f"de otra fecha descartadas {skipped_old_marks}; "
             f"sin empleado asociado {unmatched_marks}."
             )
             audit(cursor, "SYNC_OK", result_text, actor_id)

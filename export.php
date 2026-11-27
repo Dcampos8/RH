@@ -43,7 +43,7 @@ SQL;
     header('Content-Disposition: attachment; filename="checadas-' . $start->format('Y-m-d') . '-' . $end->format('Y-m-d') . '.csv"');
     echo "\xEF\xBB\xBF";
     $out = fopen('php://output', 'w');
-    fputcsv($out, ['Fecha', 'Empleado', 'Departamento', 'Horario', 'Entrada', 'Salida comida', 'Regreso comida', 'Duración comida', 'Salida', 'Número checadas', 'Estado', 'Minutos tarde', 'Descuento MXN']);
+    fputcsv($out, ['Fecha', 'Empleado', 'Departamento', 'Horario', 'Entrada', 'Salida comida', 'Regreso comida', 'Duración comida', 'Salida', 'Número checadas', 'Detalle de checadas', 'Estado', 'Minutos tarde', 'Descuento MXN']);
     foreach ($groups as $punches) {
         $first = $punches[0];
         $firstAt = new DateTimeImmutable((string)$first['punch_time']);
@@ -59,7 +59,11 @@ SQL;
             $first['shift_name'] ?: ($first['hora_inicio'] ?: 'Sin horario'), $firstAt->format('H:i:s'),
             $mealOut ? $mealOut->format('H:i:s') : '', $mealBack ? $mealBack->format('H:i:s') : '',
             $summary['meal_minutes'] === null ? '' : sprintf('%02d:%02d', intdiv($summary['meal_minutes'], 60), $summary['meal_minutes'] % 60),
-            $exitAt?->format('H:i:s') ?? '', count($punches), $status, $late ?? '',
+            $exitAt?->format('H:i:s') ?? '', count($punches),
+            implode(' | ', array_map(static function (array $punch, int $index) use ($summary): string {
+                $at = new DateTimeImmutable((string)$punch['punch_time']);
+                return $at->format('H:i:s') . ' - ' . ($summary['labels'][$index] ?? 'Checada');
+            }, $punches, array_keys($punches))), $status, $late ?? '',
             number_format(($late ?? 0) * 3, 2, '.', '')];
         foreach ($values as &$value) {
             $value = (string)$value;

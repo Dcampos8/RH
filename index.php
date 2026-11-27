@@ -84,6 +84,10 @@ SQL;
             'minutos' => $lateMinutes,
             'descuento' => ($lateMinutes ?? 0) * 3,
             'cantidad' => count($punches),
+            'detalle_marcas' => array_map(static function (array $punch, int $index) use ($summary): string {
+                $at = new DateTimeImmutable((string)$punch['punch_time']);
+                return $at->format('H:i:s') . ' · ' . ($summary['labels'][$index] ?? 'Checada');
+            }, $punches, array_keys($punches)),
         ];
     }
 } catch (Throwable $exception) {
@@ -114,6 +118,6 @@ $totalLateMinutes = array_sum(array_map(static fn($row) => (int)($row['minutos']
 <p class="hint">Se permiten 10 minutos de tolerancia. Desde el minuto 11 se calculan $3 MXN por cada minuto completo de retardo. La salida es la checada más cercana al fin del turno asignado. La comida se identifica con sus dos marcas intermedias cuando hay al menos cuatro checadas en el día.</p></section>
 <?php if (has_permission('sync_run')): ?><section class="card"><form class="sync" method="post" action="sync.php" onsubmit="return confirm('Sincronizar checadas y usuarios entre CHECADOR y el F19. ¿Continuar?')"><input type="hidden" name="csrf" value="<?=h(csrf_token())?>"><button>Sincronizar ahora</button></form><p class="hint">La sincronización automática se configura en Configuración. No transfiere huellas ni limpia el reloj.</p></section><?php endif; ?>
 <section class="card stats"><div><b><?=count($rows)?></b><br>registros empleado/día</div><div><b><?=$totalPunches?></b><br>checadas</div><div><b><?=$lateDays?></b><br>días con retardo</div><div><b><?=$totalLateMinutes?></b><br>minutos tarde</div><div><b>$<?=number_format((float)$totalPenalty, 2)?></b><br>descuento calculado</div></section>
-<section class="card scroll"><table><thead><tr><th>Fecha</th><th>Empleado</th><th>Departamento</th><th>Horario</th><th>Entrada</th><th>Salida comida</th><th>Regreso comida</th><th>Duración comida</th><th>Salida</th><th>Marcas</th><th>Estado</th><th>Min. tarde</th><th>Descuento</th></tr></thead><tbody>
-<?php foreach ($rows as $row): ?><tr><td><?=h($row['fecha'])?></td><td><?=h($row['empleado'])?></td><td><?=h($row['departamento'])?></td><td><?=h($row['horario'])?></td><td><?=h($row['entrada'])?></td><td><?=h($row['salida_comida'])?></td><td><?=h($row['regreso_comida'])?></td><td><?=h($row['comida'])?></td><td><?=h($row['salida'])?></td><td><?=h($row['cantidad'])?></td><td><span class="badge <?=($row['estado']==='Retardo'?'badge-late':($row['estado']==='A tiempo'?'badge-ok':'badge-muted'))?>"><?=h($row['estado'])?></span></td><td><?=h($row['minutos'] ?? '—')?></td><td>$<?=number_format((float)$row['descuento'], 2)?></td></tr><?php endforeach; ?>
+<section class="card scroll"><table><thead><tr><th>Fecha</th><th>Empleado</th><th>Departamento</th><th>Horario</th><th>Entrada</th><th>Salida comida</th><th>Regreso comida</th><th>Duración comida</th><th>Salida</th><th>Checadas del día</th><th>Estado</th><th>Min. tarde</th><th>Descuento</th></tr></thead><tbody>
+<?php foreach ($rows as $row): ?><tr><td><?=h($row['fecha'])?></td><td><?=h($row['empleado'])?></td><td><?=h($row['departamento'])?></td><td><?=h($row['horario'])?></td><td><?=h($row['entrada'])?></td><td><?=h($row['salida_comida'])?></td><td><?=h($row['regreso_comida'])?></td><td><?=h($row['comida'])?></td><td><?=h($row['salida'])?></td><td><details><summary><?=h($row['cantidad'])?> marcas</summary><ol><?php foreach ($row['detalle_marcas'] as $markDetail): ?><li><?=h($markDetail)?></li><?php endforeach; ?></ol></details></td><td><span class="badge <?=($row['estado']==='Retardo'?'badge-late':($row['estado']==='A tiempo'?'badge-ok':'badge-muted'))?>"><?=h($row['estado'])?></span></td><td><?=h($row['minutos'] ?? '—')?></td><td>$<?=number_format((float)$row['descuento'], 2)?></td></tr><?php endforeach; ?>
 </tbody></table></section></main></body></html>
