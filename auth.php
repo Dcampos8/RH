@@ -39,7 +39,7 @@ function permission_catalog(): array
     return [
         'report_view' => 'Ver reportes y exportar a CSV',
         'employee_view' => 'Ver empleados del checador',
-        'employee_create' => 'Dar de alta empleados en el checador',
+        'employee_create' => 'Dar de alta empleados y cambiar su estatus',
         'schedule_view' => 'Ver horarios asignados',
         'schedule_manage' => 'Crear turnos y administrar horarios',
         'platform_users_manage' => 'Crear cuentas de acceso',
