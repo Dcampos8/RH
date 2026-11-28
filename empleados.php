@@ -1,6 +1,7 @@
 <?php
 declare(strict_types=1);
 require_once __DIR__ . '/auth.php';
+require_once __DIR__ . '/module_tabs.php';
 require_once __DIR__ . '/branding.php';
 require_permission('employee_view');
 
@@ -115,7 +116,7 @@ $inactiveEmployees = $totalEmployees - $activeEmployees;
 <style>body{font:15px system-ui;background:#f3f5f8;color:#17202a;margin:0}main{width:auto;max-width:none;box-sizing:border-box;margin:24px 0;padding:0 24px}.card{background:#fff;border:1px solid #dce2e9;border-radius:12px;padding:20px;margin:18px 0}form{display:flex;gap:12px;align-items:end;flex-wrap:wrap}label{display:grid;gap:6px}input,select,button,a{font:inherit;padding:9px 12px;border:1px solid #bcc7d3;border-radius:7px}button,a{background:#173b67;color:#fff;text-decoration:none;border:0;cursor:pointer}.error{color:#a32323}.ok{color:#277341}.hint{font-size:13px;color:#637083}.credential{font-size:20px;font-weight:700;letter-spacing:2px}.scroll{overflow:auto}table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:9px;border-bottom:1px solid #e5e9ee;vertical-align:middle}th{white-space:nowrap;background:#edf2f7}.toolbar{display:flex;gap:12px;align-items:end;flex-wrap:wrap}.toolbar label{flex:1;min-width:220px}.toolbar input{width:100%;box-sizing:border-box}.toolbar select{min-width:170px}.stats{display:flex;gap:22px;flex-wrap:wrap}.stats b{font-size:19px}.row-status{display:flex;gap:7px;align-items:center}.row-status select{min-width:120px}.employee-row.inactive{background:#fafafa;color:#697586}.select-cell{width:36px}.select-cell input{min-height:auto}.bulk-form{display:flex;gap:10px;align-items:end;flex-wrap:wrap}.bulk-form label{min-width:200px}.badge{display:inline-block;padding:4px 9px;border-radius:20px;font-size:12px;font-weight:700}.badge-active{background:#e5f5ec;color:#197444}.badge-inactive{background:#f0f1f3;color:#616b78}.empty-state{padding:18px;text-align:center;color:#637083}</style>
 <link rel="stylesheet" href="assets/app.css"><link rel="icon" href="favicon.php?v=<?=time()?>" sizes="any"></head>
 <body style="--brand:<?=h($branding['accent_color'])?>;--brand-dark:<?=h($branding['dark_color'])?>"><main>
-<div class="brandbar"><img src="logo.php" alt="<?=h($branding['brand_name'])?>"><div class="brand-caption"><strong><?=h($branding['brand_name'])?></strong>Recursos Humanos · CHECADOR</div></div>
+<div class="brandbar"><img src="logo.php" alt="<?=h($branding['brand_name'])?>"><div class="brand-caption"><strong><?=h($branding['brand_name'])?></strong>Recursos Humanos · CHECADOR</div></div><?php render_module_tabs('checador'); ?>
 <h1>Empleados del checador</h1><p><a href="index.php">Volver al reporte</a><?php if (has_permission('schedule_view')): ?> · <a href="horarios.php">Asignar horarios</a><?php endif; ?></p>
 <?php if ($error): ?><p class="error"><?=h($error)?></p><?php endif; ?><?php if ($notice): ?><p class="ok"><?=h($notice)?></p><?php endif; ?>
 <?php if ($created): ?><section class="card"><p class="ok">Empleado creado en CHECADOR. Para mandarlo al F19, pulsa “Sincronizar ahora” en el reporte.</p><p><?=h($created['name'])?> · Número de nómina / emp_pin: <?=h($created['pin'])?></p><p>Código aleatorio / emp_code: <span class="credential"><?=h($created['code'])?></span></p><p class="hint">emp_pin identifica al usuario en el F19; emp_code es el código interno aleatorio de 4 dígitos.</p></section><?php endif; ?>

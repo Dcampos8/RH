@@ -1,6 +1,7 @@
 <?php
 declare(strict_types=1);
 require_once __DIR__ . '/auth.php';
+require_once __DIR__ . '/module_tabs.php';
 require_once __DIR__ . '/branding.php';
 require_permission('platform_users_manage');
 
@@ -117,7 +118,7 @@ if (isset($_GET['guardado'])) $notice = 'Cambios guardados.';
 body{font:15px system-ui;background:#f3f5f8;color:#17202a;margin:0}main{width:auto;max-width:none;box-sizing:border-box;margin:24px 0;padding:0 24px}.card{background:white;border:1px solid #dce2e9;border-radius:12px;padding:18px;margin:18px 0}form{display:flex;gap:10px;align-items:end;flex-wrap:wrap}label{display:grid;gap:5px}input,button,a{font:inherit;padding:9px 12px;border:1px solid #bcc7d3;border-radius:7px}button,a{background:#173b67;color:white;text-decoration:none;cursor:pointer;border:0}.error{color:#a32323}.ok{color:#277341}.hint{color:#637083;font-size:13px}table{width:100%;border-collapse:collapse}td,th{text-align:left;padding:9px;border-bottom:1px solid #e5e9ee}.password-value{font-size:20px;font-weight:700;letter-spacing:1px;word-break:break-all}.password-field{display:flex;gap:6px;align-items:center}.password-field input{min-width:240px}.danger-note{color:#70450c;background:#fff8e8;padding:12px;border-radius:8px}
 </style><link rel="stylesheet" href="assets/app.css"><link rel="icon" href="favicon.php?v=<?=time()?>" sizes="any"></head>
 <body style="--brand:<?=h($branding['accent_color'])?>;--brand-dark:<?=h($branding['dark_color'])?>"><main>
-<div class="brandbar"><img src="logo.php" alt="<?=h($branding['brand_name'])?>"><div class="brand-caption"><strong><?=h($branding['brand_name'])?></strong>Administración de cuentas</div></div>
+<div class="brandbar"><img src="logo.php" alt="<?=h($branding['brand_name'])?>"><div class="brand-caption"><strong><?=h($branding['brand_name'])?></strong>Administración de cuentas</div></div><?php render_module_tabs('checador'); ?>
 <h1>Cuentas de acceso</h1><p><a href="index.php">Volver al reporte</a></p>
 <?php if ($error): ?><p class="error"><?=h($error)?></p><?php endif; ?>
 <?php if ($notice): ?><p class="ok"><?=h($notice)?></p><?php endif; ?>

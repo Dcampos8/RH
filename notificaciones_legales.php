@@ -1,6 +1,7 @@
 <?php
 declare(strict_types=1);
 require_once __DIR__ . '/auth.php';
+require_once __DIR__ . '/module_tabs.php';
 require_once __DIR__ . '/branding.php';
 require_permission('legal_notifications_view');
 
@@ -249,8 +250,8 @@ $listColumns = array_values(array_filter(['id_notificacion', 'expediente', 'tipo
 <!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Notificaciones legales · ADMP24</title><link rel="stylesheet" href="assets/app.css"><link rel="icon" href="favicon.php?v=<?=time()?>" sizes="any"><style>
 body{background:#f3f5f8;color:#17202a;margin:0;font:15px system-ui}main{width:auto;max-width:none;box-sizing:border-box;margin:24px 0;padding:0 24px}.card{background:#fff;border:1px solid #dce2e9;border-radius:12px;padding:18px;margin:18px 0}.toolbar,.actions{display:flex;gap:10px;align-items:end;flex-wrap:wrap}label{display:grid;gap:5px}input,select,textarea,button,a.button{font:inherit;padding:9px 12px;border:1px solid #bcc7d3;border-radius:7px}textarea{min-height:90px;min-width:min(500px,90vw)}button,a.button{background:#173b67;color:#fff;text-decoration:none;border:0;cursor:pointer}.error{color:#a32323;background:#fff0f0;padding:12px;border-radius:8px}.ok{color:#277341}.hint{font-size:13px;color:#637083}.scroll{overflow:auto}table{width:100%;border-collapse:collapse}th,td{padding:9px;text-align:left;vertical-align:top;border-bottom:1px solid #e5e9ee}th{background:#edf2f7;white-space:nowrap}.form-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px}.form-grid textarea,.wide{grid-column:1/-1}.actions form{display:inline}.snapshots pre{white-space:pre-wrap;overflow-wrap:anywhere;max-height:380px;overflow:auto;background:#f6f7f9;padding:12px;border-radius:8px}.version{min-width:80px}
 </style></head><body style="--brand:<?=h($branding['accent_color'])?>;--brand-dark:<?=h($branding['dark_color'])?>"><main>
-<div class="brandbar"><img src="logo.php" alt="<?=h($branding['brand_name'])?>"><div class="brand-caption"><strong><?=h($branding['brand_name'])?></strong>Módulo independiente · ADMP24</div></div>
-<h1>Notificaciones legales</h1><p><a href="index.php">Volver al checador</a> · <a href="notificaciones_legales.php?historial_general=1">Historial general</a></p>
+<div class="brandbar"><img src="logo.php" alt="<?=h($branding['brand_name'])?>"><div class="brand-caption"><strong><?=h($branding['brand_name'])?></strong>Módulo independiente · ADMP24</div></div><?php render_module_tabs('legal'); ?>
+<h1>Notificaciones legales</h1><p><a href="notificaciones_legales.php?historial_general=1">Historial general</a></p>
 <?php if ($error): ?><p class="error"><?=h($error)?></p><?php endif; ?><?php if ($notice): ?><p class="ok"><?=h($notice)?></p><?php endif; ?>
 <?php if ($pdo && $tableSchema !== ''): ?><p class="hint">Base de datos ADMP24 · Tabla <?=h($tableSchema)?>.<?=h('notificaciones_legales')?> · Se muestran hasta 500 registros por vista.</p><?php endif; ?>
 <?php if ($pdo && $tableSchema !== '' && $historyId === 0 && !$showGeneralHistory && $canManage): ?>
