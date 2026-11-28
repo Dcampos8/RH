@@ -13,11 +13,27 @@ BEGIN
         platform_users_manage BIT NOT NULL CONSTRAINT DF_rh_perm_users DEFAULT 0,
         settings_manage BIT NOT NULL CONSTRAINT DF_rh_perm_settings DEFAULT 0,
         sync_run BIT NOT NULL CONSTRAINT DF_rh_perm_sync DEFAULT 0,
+        legal_notifications_view BIT NOT NULL CONSTRAINT DF_rh_perm_legal_notifications DEFAULT 0,
+        legal_notifications_manage BIT NOT NULL CONSTRAINT DF_rh_perm_legal_manage DEFAULT 0,
         updated_by INT NULL,
         updated_at DATETIME2(0) NOT NULL CONSTRAINT DF_rh_perm_updated DEFAULT SYSUTCDATETIME(),
         CONSTRAINT FK_rh_user_permissions_user FOREIGN KEY (user_id) REFERENCES dbo.sys_user(id) ON DELETE CASCADE,
         CONSTRAINT FK_rh_user_permissions_updated_by FOREIGN KEY (updated_by) REFERENCES dbo.sys_user(id)
     );
+END;
+GO
+
+IF COL_LENGTH(N'dbo.rh_user_permissions', N'legal_notifications_view') IS NULL
+BEGIN
+    ALTER TABLE dbo.rh_user_permissions ADD legal_notifications_view BIT NOT NULL
+        CONSTRAINT DF_rh_perm_legal_notifications DEFAULT 0;
+END;
+GO
+
+IF COL_LENGTH(N'dbo.rh_user_permissions', N'legal_notifications_manage') IS NULL
+BEGIN
+    ALTER TABLE dbo.rh_user_permissions ADD legal_notifications_manage BIT NOT NULL
+        CONSTRAINT DF_rh_perm_legal_manage DEFAULT 0;
 END;
 GO
 

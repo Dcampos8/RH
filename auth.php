@@ -45,6 +45,8 @@ function permission_catalog(): array
         'platform_users_manage' => 'Crear cuentas de acceso',
         'settings_manage' => 'Cambiar configuración y marca del portal',
         'sync_run' => 'Ejecutar sincronización con el reloj',
+        'legal_notifications_view' => 'Ver notificaciones legales de ADMP24',
+        'legal_notifications_manage' => 'Capturar, editar y eliminar notificaciones legales',
     ];
 }
 
@@ -77,6 +79,7 @@ function current_user_permissions(): array
     }
     if ($permissions['employee_create']) $permissions['employee_view'] = true;
     if ($permissions['schedule_manage']) $permissions['schedule_view'] = true;
+    if ($permissions['legal_notifications_manage']) $permissions['legal_notifications_view'] = true;
     return $cache[$userId] = $permissions;
 }
 
@@ -104,6 +107,7 @@ function default_user_route(): string
         'schedule_view' => 'horarios.php',
         'platform_users_manage' => 'users.php',
         'settings_manage' => 'settings.php',
+        'legal_notifications_view' => 'notificaciones_legales.php',
     ] as $permission => $route) {
         if (has_permission($permission)) return $route;
     }
