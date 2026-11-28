@@ -5,7 +5,8 @@ IF OBJECT_ID(N'dbo.rh_user_permissions', N'U') IS NULL
 BEGIN
     CREATE TABLE dbo.rh_user_permissions (
         user_id INT NOT NULL CONSTRAINT PK_rh_user_permissions PRIMARY KEY,
-        report_view BIT NOT NULL CONSTRAINT DF_rh_perm_report DEFAULT 1,
+        checador_module_view BIT NOT NULL CONSTRAINT DF_rh_perm_checador_module DEFAULT 0,
+        report_view BIT NOT NULL CONSTRAINT DF_rh_perm_report DEFAULT 0,
         employee_view BIT NOT NULL CONSTRAINT DF_rh_perm_employee_view DEFAULT 0,
         employee_create BIT NOT NULL CONSTRAINT DF_rh_perm_employee_create DEFAULT 0,
         schedule_view BIT NOT NULL CONSTRAINT DF_rh_perm_schedule_view DEFAULT 0,
@@ -23,6 +24,13 @@ BEGIN
 END;
 GO
 
+IF COL_LENGTH(N'dbo.rh_user_permissions', N'checador_module_view') IS NULL
+BEGIN
+    ALTER TABLE dbo.rh_user_permissions ADD checador_module_view BIT NOT NULL
+        CONSTRAINT DF_rh_perm_checador_module DEFAULT 0;
+END;
+GO
+
 IF COL_LENGTH(N'dbo.rh_user_permissions', N'legal_notifications_view') IS NULL
 BEGIN
     ALTER TABLE dbo.rh_user_permissions ADD legal_notifications_view BIT NOT NULL
@@ -37,9 +45,9 @@ BEGIN
 END;
 GO
 
--- Existing accounts start with report access only; admin always has all permissions.
-INSERT INTO dbo.rh_user_permissions (user_id, report_view)
-SELECT u.id, 1
+-- User accounts start with all modules disabled; admin always has all permissions.
+INSERT INTO dbo.rh_user_permissions (user_id, checador_module_view, report_view)
+SELECT u.id, 0, 0
 FROM dbo.sys_user AS u
 WHERE LOWER(u.username) <> N'admin'
   AND NOT EXISTS (SELECT 1 FROM dbo.rh_user_permissions AS p WHERE p.user_id = u.id);

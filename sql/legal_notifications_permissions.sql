@@ -8,6 +8,13 @@ BEGIN
 END;
 GO
 
+IF COL_LENGTH(N'dbo.rh_user_permissions', N'checador_module_view') IS NULL
+BEGIN
+    ALTER TABLE dbo.rh_user_permissions ADD checador_module_view BIT NOT NULL
+        CONSTRAINT DF_rh_perm_checador_module DEFAULT 0;
+END;
+GO
+
 IF COL_LENGTH(N'dbo.rh_user_permissions', N'legal_notifications_view') IS NULL
 BEGIN
     ALTER TABLE dbo.rh_user_permissions ADD legal_notifications_view BIT NOT NULL

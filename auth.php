@@ -37,6 +37,7 @@ function require_admin(): void
 function permission_catalog(): array
 {
     return [
+        'checador_module_view' => 'Acceder al módulo Checador',
         'report_view' => 'Ver reportes y exportar a CSV',
         'employee_view' => 'Ver empleados del checador',
         'employee_create' => 'Dar de alta empleados y cambiar su estatus',
@@ -45,7 +46,7 @@ function permission_catalog(): array
         'platform_users_manage' => 'Crear cuentas de acceso',
         'settings_manage' => 'Cambiar configuración y marca del portal',
         'sync_run' => 'Ejecutar sincronización con el reloj',
-        'legal_notifications_view' => 'Ver notificaciones legales de ADMP24',
+        'legal_notifications_view' => 'Acceder al módulo Notificaciones legales (consulta)',
         'legal_notifications_manage' => 'Capturar, editar y eliminar notificaciones legales',
     ];
 }
@@ -63,7 +64,6 @@ function current_user_permissions(): array
     if (isset($cache[$userId])) return $cache[$userId];
 
     $permissions = array_fill_keys(array_keys(permission_catalog()), false);
-    $permissions['report_view'] = true; // Existing and new accounts keep access to the report by default.
     if ($userId > 0) {
         try {
             $columns = implode(', ', array_map(static fn($key) => '[' . $key . ']', array_keys(permission_catalog())));
@@ -80,6 +80,11 @@ function current_user_permissions(): array
     if ($permissions['employee_create']) $permissions['employee_view'] = true;
     if ($permissions['schedule_manage']) $permissions['schedule_view'] = true;
     if ($permissions['legal_notifications_manage']) $permissions['legal_notifications_view'] = true;
+    if (!$permissions['checador_module_view']) {
+        foreach (['report_view', 'employee_view', 'employee_create', 'schedule_view', 'schedule_manage', 'platform_users_manage', 'settings_manage', 'sync_run'] as $permission) {
+            $permissions[$permission] = false;
+        }
+    }
     return $cache[$userId] = $permissions;
 }
 
@@ -101,8 +106,9 @@ function require_permission(string $permission): void
 
 function default_user_route(): string
 {
-    if (is_admin_user() || has_permission('report_view')) return 'index.php';
+    if (is_admin_user()) return 'index.php';
     foreach ([
+        'report_view' => 'index.php',
         'employee_view' => 'empleados.php',
         'schedule_view' => 'horarios.php',
         'platform_users_manage' => 'users.php',
