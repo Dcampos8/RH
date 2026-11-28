@@ -14,3 +14,4 @@ GO
 IF COL_LENGTH(N'dbo.rh_branding', N'favicon_mime') IS NULL
     ALTER TABLE dbo.rh_branding ADD favicon_mime NVARCHAR(64) NULL;
 GO
+
